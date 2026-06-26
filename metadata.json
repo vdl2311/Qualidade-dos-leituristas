@@ -1,0 +1,6 @@
+{
+  "name": "RankDash - Controle de Impedimentos",
+  "description": "Dashboard interativo de ranking de leituras e impedimentos com painel administrativo completo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
