@@ -13,7 +13,7 @@ interface RankingTableProps {
 export default function RankingTable({ workers, targetRatio, onEditWorker, isAdminMode = false }: RankingTableProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'in_goal' | 'out_goal'>('all');
-  const [sortField, setSortField] = useState<SortField>('ratio');
+  const [sortField, setSortField] = useState<SortField>('rank');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc'); // Best first
   
   // Pagination
@@ -32,23 +32,38 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
     setCurrentPage(1); // Reset to page 1 on sort change
   };
 
-  // 1. Calculate the RANK of every worker based on ratio ASC, readings DESC (tiebreaker)
+  // 1. Calculate the RANK of every worker based on Bayesian Adjusted Ratio (takes into account both ratio and high volume)
   const rankedWorkers = useMemo(() => {
+    // K represents a smoothing constant (minimum baseline sample size)
+    const K = 2000;
+    const baseTargetRatio = targetRatio / 100; // e.g. 0.0050
+
+    const getAdjustedRatio = (w: WorkerData) => {
+      const readings = w.readings;
+      const impediments = w.impediments;
+      return ((impediments + K * baseTargetRatio) / (readings + K)) * 100;
+    };
+
     const sorted = [...workers].sort((a, b) => {
-      if (a.ratio !== b.ratio) {
-        return a.ratio - b.ratio;
+      const adjA = getAdjustedRatio(a);
+      const adjB = getAdjustedRatio(b);
+      
+      if (adjA !== adjB) {
+        return adjA - adjB;
       }
-      return b.readings - a.readings; // More readings with same ratio is better (lower rank index)
+      return b.readings - a.readings; // More readings is better
     });
     
     return workers.map((worker) => {
       const rankIndex = sorted.findIndex(w => w.id === worker.id);
+      const exactRatio = worker.readings > 0 ? (worker.impediments / worker.readings) * 100 : 0;
       return {
         ...worker,
+        ratio: exactRatio, // Ensure exact double-precision ratio is displayed
         rank: rankIndex + 1
       };
     });
-  }, [workers]);
+  }, [workers, targetRatio]);
 
   // 2. Filter workers by search string and status filter
   const filteredWorkers = useMemo(() => {
@@ -78,6 +93,9 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
         comparison = a.impediments - b.impediments;
       } else if (sortField === 'ratio') {
         comparison = a.ratio - b.ratio;
+        if (comparison === 0) {
+          comparison = b.readings - a.readings; // Tie-breaker: more readings is better
+        }
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;

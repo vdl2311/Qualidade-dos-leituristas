@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { WorkerData } from '../types';
 import { Award, ShieldAlert, BarChart3, PieChart } from 'lucide-react';
@@ -8,35 +9,51 @@ interface DashboardChartsProps {
 }
 
 export default function DashboardCharts({ workers, targetRatio }: DashboardChartsProps) {
-  // 1. Sort workers to get top 5 (lowest ratio) and worst 5 (highest ratio)
-  const sortedByRatio = [...workers].sort((a, b) => {
-    if (a.ratio !== b.ratio) return a.ratio - b.ratio;
-    return b.readings - a.readings;
-  });
+  // Normalize workers with exact dynamic float ratio
+  const exactWorkers = useMemo(() => {
+    return workers.map(w => ({
+      ...w,
+      ratio: w.readings > 0 ? (w.impediments / w.readings) * 100 : 0
+    }));
+  }, [workers]);
 
-  const top5 = sortedByRatio.slice(0, 5);
-  const worst5 = [...sortedByRatio].reverse().slice(0, 5);
+  // 1. Sort workers to get top 5 (lowest ratio) and worst 5 (highest ratio) using Bayesian Adjusted Ratio
+  const sortedByRatio = useMemo(() => {
+    const K = 2000;
+    const baseTargetRatio = targetRatio / 100;
+
+    return [...exactWorkers].sort((a, b) => {
+      const adjA = ((a.impediments + K * baseTargetRatio) / (a.readings + K)) * 100;
+      const adjB = ((b.impediments + K * baseTargetRatio) / (b.readings + K)) * 100;
+      
+      if (adjA !== adjB) return adjA - adjB;
+      return b.readings - a.readings;
+    });
+  }, [exactWorkers, targetRatio]);
+
+  const top5 = useMemo(() => sortedByRatio.slice(0, 5), [sortedByRatio]);
+  const worst5 = useMemo(() => [...sortedByRatio].reverse().slice(0, 5), [sortedByRatio]);
 
   // 2. Calculate percentages of in vs out of goal
-  const inGoal = workers.filter(w => w.ratio <= targetRatio).length;
-  const outGoal = workers.length - inGoal;
-  const inGoalPercent = workers.length > 0 ? (inGoal / workers.length) * 100 : 0;
-  const outGoalPercent = workers.length > 0 ? (outGoal / workers.length) * 100 : 0;
+  const inGoal = useMemo(() => exactWorkers.filter(w => w.ratio <= targetRatio).length, [exactWorkers, targetRatio]);
+  const outGoal = useMemo(() => exactWorkers.length - inGoal, [exactWorkers, inGoal]);
+  const inGoalPercent = exactWorkers.length > 0 ? (inGoal / exactWorkers.length) * 100 : 0;
+  const outGoalPercent = exactWorkers.length > 0 ? (outGoal / exactWorkers.length) * 100 : 0;
 
   // 3. Leituras vs Impedimentos average per cohort
-  const highVolume = workers.filter(w => w.readings >= 6000);
-  const medVolume = workers.filter(w => w.readings >= 3000 && w.readings < 6000);
-  const lowVolume = workers.filter(w => w.readings < 3000);
+  const highVolume = useMemo(() => exactWorkers.filter(w => w.readings >= 6000), [exactWorkers]);
+  const medVolume = useMemo(() => exactWorkers.filter(w => w.readings >= 3000 && w.readings < 6000), [exactWorkers]);
+  const lowVolume = useMemo(() => exactWorkers.filter(w => w.readings < 3000), [exactWorkers]);
 
-  const avgRatioHigh = highVolume.length > 0 
+  const avgRatioHigh = useMemo(() => highVolume.length > 0 
     ? highVolume.reduce((sum, w) => sum + w.ratio, 0) / highVolume.length 
-    : 0;
-  const avgRatioMed = medVolume.length > 0 
+    : 0, [highVolume]);
+  const avgRatioMed = useMemo(() => medVolume.length > 0 
     ? medVolume.reduce((sum, w) => sum + w.ratio, 0) / medVolume.length 
-    : 0;
-  const avgRatioLow = lowVolume.length > 0 
+    : 0, [medVolume]);
+  const avgRatioLow = useMemo(() => lowVolume.length > 0 
     ? lowVolume.reduce((sum, w) => sum + w.ratio, 0) / lowVolume.length 
-    : 0;
+    : 0, [lowVolume]);
 
   return (
     <div id="dashboard-charts-grid" className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

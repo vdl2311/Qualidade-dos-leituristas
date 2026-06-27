@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Award, Eye, AlertTriangle, Percent, CheckCircle2 } from 'lucide-react';
 import { WorkerData } from '../types';
@@ -8,24 +9,40 @@ interface StatsOverviewProps {
 }
 
 export default function StatsOverview({ workers, targetRatio }: StatsOverviewProps) {
-  // Sort by ratio ascending, then by readings descending (tiebreaker)
-  const sorted = [...workers].sort((a, b) => {
-    if (a.ratio !== b.ratio) return a.ratio - b.ratio;
-    return b.readings - a.readings;
-  });
+  // Normalize workers with exact dynamic float ratio
+  const exactWorkers = useMemo(() => {
+    return workers.map(w => ({
+      ...w,
+      ratio: w.readings > 0 ? (w.impediments / w.readings) * 100 : 0
+    }));
+  }, [workers]);
+
+  // Sort by Bayesian Adjusted Ratio to get the true best performer taking readings volume into account
+  const sorted = useMemo(() => {
+    const K = 2000;
+    const baseTargetRatio = targetRatio / 100;
+    
+    return [...exactWorkers].sort((a, b) => {
+      const adjA = ((a.impediments + K * baseTargetRatio) / (a.readings + K)) * 100;
+      const adjB = ((b.impediments + K * baseTargetRatio) / (b.readings + K)) * 100;
+      
+      if (adjA !== adjB) return adjA - adjB;
+      return b.readings - a.readings;
+    });
+  }, [exactWorkers, targetRatio]);
 
   const bestPerformer = sorted[0];
 
-  const totalReadings = workers.reduce((sum, w) => sum + w.readings, 0);
-  const totalImpediments = workers.reduce((sum, w) => sum + w.impediments, 0);
+  const totalReadings = useMemo(() => exactWorkers.reduce((sum, w) => sum + w.readings, 0), [exactWorkers]);
+  const totalImpediments = useMemo(() => exactWorkers.reduce((sum, w) => sum + w.impediments, 0), [exactWorkers]);
   
   const globalRatio = totalReadings > 0 
     ? (totalImpediments / totalReadings) * 100 
     : 0;
 
-  const workersInGoal = workers.filter(w => w.ratio <= targetRatio);
-  const goalAchievementRate = workers.length > 0 
-    ? (workersInGoal.length / workers.length) * 100 
+  const workersInGoal = useMemo(() => exactWorkers.filter(w => w.ratio <= targetRatio), [exactWorkers, targetRatio]);
+  const goalAchievementRate = exactWorkers.length > 0 
+    ? (workersInGoal.length / exactWorkers.length) * 100 
     : 0;
 
   return (
