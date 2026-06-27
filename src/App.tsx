@@ -41,7 +41,7 @@ export default function App() {
       <div id="loading-fallback" className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-semibold text-slate-500">Carregando RankDash...</p>
+          <p className="text-sm font-semibold text-slate-500">Carregando Radar do Leiturista...</p>
         </div>
       </div>
     );
@@ -61,10 +61,10 @@ export default function App() {
                 </div>
                 <div>
                   <span className="block text-base font-black text-slate-800 tracking-tight font-display">
-                    RankDash
+                    Radar do Leiturista
                   </span>
                   <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    Controle de Impedimentos
+                    Onde sua evolução acontece
                   </span>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 {
-  "name": "RankDash - Controle de Impedimentos",
-  "description": "Dashboard interativo de ranking de leituras e impedimentos com painel administrativo completo.",
+  "name": "Radar do Leiturista",
+  "description": "Radar do Leiturista | Onde sua evolução acontece",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
