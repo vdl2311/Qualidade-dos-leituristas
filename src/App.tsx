@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, BarChart2, Clock, Calendar } from 'lucide-react';
+import { Trophy, BarChart2, Clock } from 'lucide-react';
 import { WorkerData, Settings } from './types';
 import { initialWorkers } from './initialData';
 
@@ -68,12 +68,6 @@ export default function App() {
                   </span>
                 </div>
               </div>
-
-              {/* Mobile quick date */}
-              <div className="flex md:hidden items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
-                <Calendar size={12} />
-                <span>2026-06-26</span>
-              </div>
             </div>
 
             {/* Main Tabs Navigation */}
@@ -106,10 +100,6 @@ export default function App() {
 
             {/* Live Clock & Info */}
             <div className="hidden md:flex items-center gap-4 text-xs font-medium text-slate-400">
-              <div className="flex items-center gap-1">
-                <Calendar size={13} />
-                <span>2026-06-26</span>
-              </div>
               <div className="flex items-center gap-1">
                 <Clock size={13} />
                 <span>13:00 UTC</span>
