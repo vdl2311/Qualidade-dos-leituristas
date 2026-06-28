@@ -423,9 +423,10 @@ export default function AdminPanel({
     const lines = csv.split('\n').filter(line => line.trim() !== '');
     if (lines.length === 0) return;
 
-    // Detect delimiter
+    // Detect delimiter on clean first line (removing BOM if present)
     const firstLine = lines[0];
-    const delimiter = firstLine.includes(';') ? ';' : ',';
+    const cleanFirstLine = firstLine.replace(/^\uFEFF/, '').trim();
+    const delimiter = cleanFirstLine.includes(';') ? ';' : (cleanFirstLine.includes('\t') ? '\t' : ',');
 
     // Default column mappings
     let nameIdx = 0;
@@ -433,23 +434,47 @@ export default function AdminPanel({
     let impedimentsIdx = 2;
     let hasHeader = false;
 
+    // Helper to safely parse numbers with potential thousand separators or decimal formats
+    const parseNumber = (val: string): number => {
+      if (!val) return 0;
+      let clean = val.replace(/["']/g, '').trim();
+      if (!clean) return 0;
+      
+      // If it ends with ,00 or .00, strip it
+      clean = clean.replace(/[,.]00$/, '');
+      
+      // If it has decimal like ,5 or .5, strip the decimal part
+      const hasDecimal = /[,.]\d{1,2}$/.test(clean);
+      if (hasDecimal) {
+        const match = clean.match(/^(.*?)[,.]\d{1,2}$/);
+        if (match) {
+          clean = match[1];
+        }
+      }
+      
+      // Remove all non-digits (thousand separators, spaces, etc.)
+      clean = clean.replace(/\D/g, '');
+      return parseInt(clean, 10) || 0;
+    };
+
     // Clean headers for mapping (normalize accents and lowercase)
-    const headers = firstLine.split(delimiter).map(h => 
-      h.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    const headers = cleanFirstLine.split(delimiter).map(h => 
+      h.replace(/["']/g, '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     );
     
-    if (headers.includes('nome') || headers.includes('leiturista') || headers.includes('colaborador')) {
+    if (headers.some(h => h.includes('nome') || h.includes('leiturista') || h.includes('colaborador') || h.includes('func') || h.includes('registro') || h.includes('matricula'))) {
       hasHeader = true;
-      nameIdx = headers.findIndex(h => h.includes('nome') || h.includes('leiturista') || h.includes('colaborador'));
-      
-      const rIdx = headers.findIndex(h => h.includes('leitura') || h.includes('readings') || h.includes('vol'));
+      nameIdx = headers.findIndex(h => h.includes('nome') || h.includes('leiturista') || h.includes('colaborador') || h.includes('func'));
+      if (nameIdx === -1) nameIdx = 0;
+
+      const rIdx = headers.findIndex(h => h.includes('leitura') || h.includes('readings') || h.includes('vol') || h.includes('total') || h.includes('prod') || h.includes('realiz'));
       if (rIdx !== -1) readingsIdx = rIdx;
       
-      const impIdx = headers.findIndex(h => h.includes('imped') || h.includes('impe'));
+      const impIdx = headers.findIndex(h => h.includes('imped') || h.includes('impe') || h.includes('noco') || h.includes('nao') || h.includes('ocorrencia'));
       if (impIdx !== -1) impedimentsIdx = impIdx;
     } else {
       // No header found, guess based on first row structure
-      const firstRowCols = firstLine.split(delimiter).map(c => c.trim());
+      const firstRowCols = cleanFirstLine.split(delimiter).map(c => c.replace(/["']/g, '').trim());
       // If first col is a pure number (e.g., position/index like 1, 2, 3) and second col is text (name)
       if (/^\d+$/.test(firstRowCols[0]) && isNaN(Number(firstRowCols[1]))) {
         nameIdx = 1;
@@ -463,30 +488,38 @@ export default function AdminPanel({
     const importedStats: EstatisticasMensais = {};
 
     for (let i = startIndex; i < lines.length; i++) {
-      const cols = lines[i].split(delimiter).map(col => col.trim());
+      const cols = lines[i].split(delimiter).map(col => col.replace(/["']/g, '').trim());
       if (cols.length > Math.max(nameIdx, readingsIdx, impedimentsIdx)) {
         const nome = cols[nameIdx];
-        const readings = parseInt(cols[readingsIdx], 10) || 0;
-        const impediments = parseInt(cols[impedimentsIdx], 10) || 0;
+        const readings = parseNumber(cols[readingsIdx]);
+        const impediments = parseNumber(cols[impedimentsIdx]);
         
         if (nome && isNaN(Number(nome))) {
-          const id = `func_imported_${Date.now()}_${i}`;
+          // Check if this employee already exists locally to avoid duplication
+          const existing = localFuncionarios.find(f => f.nome.toLowerCase() === nome.toLowerCase());
           
-          // Lock city to Manager's city, or default to Ipatinga
-          const assignedCity = currentUser?.cargo === 'gerente'
-            ? currentUser.cidade as 'ipatinga' | 'caratinga' | 'governador_valadares'
-            : 'ipatinga';
+          let id = '';
+          if (existing) {
+            id = existing.id;
+          } else {
+            id = `func_imported_${Date.now()}_${i}`;
+            
+            // Lock city to Manager's city, or default to Ipatinga
+            const assignedCity = currentUser?.cargo === 'gerente'
+              ? currentUser.cidade as 'ipatinga' | 'caratinga' | 'governador_valadares'
+              : 'ipatinga';
 
-          const nextMatricula = localFuncionarios.length + importedFuncs.length + 1001;
+            const nextMatricula = localFuncionarios.length + importedFuncs.length + 1001;
 
-          importedFuncs.push({
-            id,
-            nome: nome.toUpperCase(),
-            matricula: nextMatricula,
-            cidade: assignedCity,
-            equipe: 'Equipe Importada',
-            ativo: true
-          });
+            importedFuncs.push({
+              id,
+              nome: nome.toUpperCase(),
+              matricula: nextMatricula,
+              cidade: assignedCity,
+              equipe: 'Equipe Importada',
+              ativo: true
+            });
+          }
 
           importedStats[id] = {
             leituras: readings,
@@ -499,12 +532,26 @@ export default function AdminPanel({
       }
     }
 
-    if (importedFuncs.length > 0) {
-      setLocalFuncionarios(prev => [...importedFuncs, ...prev]);
+    if (importedFuncs.length > 0 || Object.keys(importedStats).length > 0) {
+      if (importedFuncs.length > 0) {
+        setLocalFuncionarios(prev => [...importedFuncs, ...prev]);
+      }
       setLocalEstatisticas(prev => ({ ...prev, ...importedStats }));
-      alert(`${importedFuncs.length} leituristas carregados do arquivo. Não se esqueça de clicar em 'Salvar Alterações'.`);
+      
+      const newCount = importedFuncs.length;
+      const updatedCount = Object.keys(importedStats).length - newCount;
+      
+      let msg = '';
+      if (newCount > 0 && updatedCount > 0) {
+        msg = `${newCount} novos leituristas cadastrados e ${updatedCount} existentes atualizados.`;
+      } else if (newCount > 0) {
+        msg = `${newCount} novos leituristas cadastrados do arquivo CSV.`;
+      } else {
+        msg = `${updatedCount} leituristas atualizados com sucesso.`;
+      }
+      alert(`${msg} Não se esqueça de clicar em 'Salvar Alterações'.`);
     } else {
-      alert("Não foi possível extrair dados do CSV. Verifique se as colunas estão no formato esperado.");
+      alert("Não foi possível extrair dados do CSV. Verifique se o arquivo possui colunas com nomes como Nome, Leituras, Impedimentos.");
     }
   };
 
