@@ -677,7 +677,7 @@ export default function App() {
                   </span>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[9px] font-bold uppercase tracking-wider">
-                      {selectedCity === 'all' || selectedCity === 'todas' ? 'Geral' : selectedCity || 'Sem Cidade'}
+                      {selectedCity === 'all' || selectedCity === 'todas' ? 'Geral' : selectedCity || 'Sem Base'}
                     </span>
                     <span className="block text-[10px] text-slate-400 font-semibold">
                       {currentPeriod}
@@ -693,7 +693,7 @@ export default function App() {
                   className="md:hidden flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg"
                 >
                   <MapPin size={12} />
-                  <span>Trocar Cidade</span>
+                  <span>Trocar Base</span>
                 </button>
               )}
             </div>
@@ -775,7 +775,7 @@ export default function App() {
                   className="hidden md:flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2.5 rounded-xl transition-all"
                 >
                   <MapPin size={14} />
-                  <span>Trocar Cidade</span>
+                  <span>Trocar Base</span>
                 </button>
               )}
 

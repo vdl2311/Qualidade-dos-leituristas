@@ -737,7 +737,7 @@ export default function AdminPanel({
 
             {/* Employee Management Section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-              <h3 className="text-lg font-bold text-slate-800">Gerenciar Leituristas de {currentUser?.cargo === 'gerente' ? currentUser.cidade.toUpperCase() : 'Todas as Cidades'}</h3>
+              <h3 className="text-lg font-bold text-slate-800">Gerenciar Leituristas de {currentUser?.cargo === 'gerente' ? currentUser.cidade.toUpperCase() : 'Todas as Bases'}</h3>
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className="relative flex-1 sm:flex-none">
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -766,7 +766,7 @@ export default function AdminPanel({
                   <tr className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                     <th className="px-4 py-3">Matrícula</th>
                     <th className="px-4 py-3">Nome</th>
-                    <th className="px-4 py-3 w-32">Cidade</th>
+                    <th className="px-4 py-3 w-32">Base</th>
                     <th className="px-4 py-3 w-32">Leituras</th>
                     <th className="px-4 py-3 w-32">Impedimentos</th>
                     <th className="px-4 py-3 w-28">% Relação</th>
@@ -863,7 +863,7 @@ export default function AdminPanel({
           <div className="space-y-6 animate-fade-in">
             <div className="p-4 bg-indigo-50 text-indigo-900 rounded-2xl border border-indigo-100 text-sm">
               <strong className="block mb-1">Painel de Acesso (Gerentes e Supervisores)</strong>
-              <p>Cadastre e gerencie os logins de acesso. Gerentes só podem visualizar e lançar dados das suas respectivas cidades. Supervisores têm acesso irrestrito.</p>
+              <p>Cadastre e gerencie os logins de acesso. Gerentes só podem visualizar e lançar dados das suas respectivas bases. Supervisores têm acesso irrestrito.</p>
             </div>
 
             {/* Add User Card */}
@@ -916,7 +916,7 @@ export default function AdminPanel({
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-500">Cidade</label>
+                    <label className="text-xs font-semibold text-slate-500">Base</label>
                     <select
                       disabled={newUserCargo === 'supervisor'}
                       value={newUserCargo === 'supervisor' ? 'todas' : newUserCidade}
@@ -950,7 +950,7 @@ export default function AdminPanel({
                     <th className="px-4 py-3">Nome</th>
                     <th className="px-4 py-3">E-mail</th>
                     <th className="px-4 py-3 w-32">Cargo</th>
-                    <th className="px-4 py-3 w-40">Cidade Vinculada</th>
+                    <th className="px-4 py-3 w-40">Base Vinculada</th>
                     <th className="px-4 py-3 w-20 text-center">Ações</th>
                   </tr>
                 </thead>
