@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, BarChart2, Clock } from 'lucide-react';
+import { Trophy, BarChart2 } from 'lucide-react';
 import { WorkerData, Settings } from './types';
 import { initialWorkers } from './initialData';
+import logoUrl from './assets/images/radar_logo_1782608579304.jpg';
 
 // Component imports
 import StatsOverview from './components/StatsOverview';
@@ -41,7 +42,7 @@ export default function App() {
       <div id="loading-fallback" className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center space-y-4">
           <img
-            src="/src/assets/images/radar_logo_1782608579304.jpg"
+            src={logoUrl}
             alt="Radar do Leiturista Logo"
             className="w-16 h-16 rounded-2xl mx-auto shadow-md border border-slate-100 object-cover"
             referrerPolicy="no-referrer"
@@ -63,7 +64,7 @@ export default function App() {
             <div className="flex items-center justify-between w-full md:w-auto">
               <div className="flex items-center gap-3">
                 <img
-                  src="/src/assets/images/radar_logo_1782608579304.jpg"
+                  src={logoUrl}
                   alt="Radar do Leiturista Logo"
                   className="w-10 h-10 rounded-xl shadow-md border border-slate-100 object-cover"
                   referrerPolicy="no-referrer"
@@ -106,14 +107,6 @@ export default function App() {
                 <span>Estatísticas</span>
               </button>
             </nav>
-
-            {/* Live Clock & Info */}
-            <div className="hidden md:flex items-center gap-4 text-xs font-medium text-slate-400">
-              <div className="flex items-center gap-1">
-                <Clock size={13} />
-                <span>13:00 UTC</span>
-              </div>
-            </div>
           </div>
         </div>
       </header>
