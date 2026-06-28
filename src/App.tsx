@@ -40,8 +40,14 @@ export default function App() {
     return (
       <div id="loading-fallback" className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-semibold text-slate-500">Carregando Radar do Leiturista...</p>
+          <img
+            src="/src/assets/images/radar_logo_1782608579304.jpg"
+            alt="Radar do Leiturista Logo"
+            className="w-16 h-16 rounded-2xl mx-auto shadow-md border border-slate-100 object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm font-semibold text-slate-500 font-medium">Carregando Radar do Leiturista...</p>
         </div>
       </div>
     );
@@ -56,9 +62,12 @@ export default function App() {
             {/* Logo and Brand */}
             <div className="flex items-center justify-between w-full md:w-auto">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-200">
-                  <Trophy size={20} className="animate-pulse" />
-                </div>
+                <img
+                  src="/src/assets/images/radar_logo_1782608579304.jpg"
+                  alt="Radar do Leiturista Logo"
+                  className="w-10 h-10 rounded-xl shadow-md border border-slate-100 object-cover"
+                  referrerPolicy="no-referrer"
+                />
                 <div>
                   <span className="block text-base font-black text-slate-800 tracking-tight font-display">
                     Radar do Leiturista
