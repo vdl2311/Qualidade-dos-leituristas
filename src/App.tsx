@@ -220,20 +220,6 @@ export default function App() {
               setCurrentUser(userData);
               setIsAdminAuthenticated(true);
 
-              // If the authenticated user is a supervisor (has permissions to delete from 'usuarios')
-              if (userData.cargo === 'supervisor' || user.email?.toLowerCase() === rootEmail) {
-                try {
-                  const q = query(collection(db, 'usuarios'), where('email', '==', 'vdlmarketdigital@gmail.com'));
-                  const snap = await getDocs(q);
-                  for (const docSnap of snap.docs) {
-                    await deleteDoc(doc(db, 'usuarios', docSnap.id));
-                    console.log(`Documento do usuário vdlmarketdigital@gmail.com (${docSnap.id}) removido do banco com sucesso.`);
-                  }
-                } catch (err) {
-                  console.error("Erro ao remover vdlmarketdigital@gmail.com de forma autenticada:", err);
-                }
-              }
-
               // Update last login
               try {
                 const { updateDoc } = await import('firebase/firestore');
