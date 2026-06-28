@@ -14,6 +14,7 @@ import StatsOverview from './components/StatsOverview';
 import RankingTable from './components/RankingTable';
 import DashboardCharts from './components/DashboardCharts';
 import AdminPanel from './components/AdminPanel';
+import InstallAppPrompt from './components/InstallAppPrompt';
 import { initialWorkers } from './initialData';
 
 const getYearMonthString = (date = new Date()) => {
@@ -132,18 +133,6 @@ export default function App() {
         // Write stats document for 2026-06
         await setDoc(doc(db, 'estatisticas', '2026-06'), statsMap);
       }
-
-      // Delete the requested user 'vdlmarketdigital@gmail.com' from the db
-      try {
-        const q = query(collection(db, 'usuarios'), where('email', '==', 'vdlmarketdigital@gmail.com'));
-        const snap = await getDocs(q);
-        for (const docSnap of snap.docs) {
-          await deleteDoc(doc(db, 'usuarios', docSnap.id));
-          console.log(`Documento do usuário vdlmarketdigital@gmail.com (${docSnap.id}) removido do banco com sucesso.`);
-        }
-      } catch (err) {
-        console.error("Erro ao remover vdlmarketdigital@gmail.com:", err);
-      }
     } catch (e) {
       console.log('Error during bootstrapping:', e);
     }
@@ -230,6 +219,20 @@ export default function App() {
             if (userData.ativo) {
               setCurrentUser(userData);
               setIsAdminAuthenticated(true);
+
+              // If the authenticated user is a supervisor (has permissions to delete from 'usuarios')
+              if (userData.cargo === 'supervisor' || user.email?.toLowerCase() === rootEmail) {
+                try {
+                  const q = query(collection(db, 'usuarios'), where('email', '==', 'vdlmarketdigital@gmail.com'));
+                  const snap = await getDocs(q);
+                  for (const docSnap of snap.docs) {
+                    await deleteDoc(doc(db, 'usuarios', docSnap.id));
+                    console.log(`Documento do usuário vdlmarketdigital@gmail.com (${docSnap.id}) removido do banco com sucesso.`);
+                  }
+                } catch (err) {
+                  console.error("Erro ao remover vdlmarketdigital@gmail.com de forma autenticada:", err);
+                }
+              }
 
               // Update last login
               try {
@@ -888,6 +891,9 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+      
+      {/* PWA App Installation Floating Banner */}
+      <InstallAppPrompt />
     </div>
   );
 }
