@@ -1,0 +1,56 @@
+{
+  "projectInfo": {
+    "name": "Radar do Leiturista"
+  },
+  "authentication": {
+    "enabled": true,
+    "providers": ["email/password"],
+    "notes": "Admin login for the admin panel."
+  },
+  "firestore": {
+    "collections": {
+      "settings": {
+        "description": "Global settings.",
+        "documents": {
+          "global": {
+            "fields": {
+              "targetRatio": {
+                "type": "number",
+                "description": "Target ratio for impediments."
+              }
+            }
+          }
+        },
+        "securityRules": {
+          "read": "true",
+          "write": "request.auth != null"
+        }
+      },
+      "workers": {
+        "description": "Worker statistics.",
+        "documents": {
+          "{workerId}": {
+            "fields": {
+              "name": {
+                "type": "string"
+              },
+              "readings": {
+                "type": "number"
+              },
+              "impediments": {
+                "type": "number"
+              },
+              "ratio": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "securityRules": {
+          "read": "true",
+          "write": "request.auth != null"
+        }
+      }
+    }
+  }
+}

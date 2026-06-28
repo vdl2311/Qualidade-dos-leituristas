@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthed() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function isRoot() {
+      return isAuthed() && request.auth.token.email.matches('^vidal2311usa.*@gmail\\.com$');
+    }
+
+    function isSupervisor() {
+      return isRoot() || (isAuthed() && getUserData().cargo == 'supervisor');
+    }
+
+    match /usuarios/{uid} {
+      allow read: if isAuthed();
+      allow write: if isAuthed() && (isRoot() || isSupervisor() || request.auth.uid == uid);
+    }
+
+    match /cidades/{cidade} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSupervisor();
+    }
+
+    match /funcionarios/{id} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAuthed();
+    }
+
+    match /estatisticas/{periodo} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAuthed();
+    }
+
+    match /settings/{document} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSupervisor();
+    }
+  }
+}

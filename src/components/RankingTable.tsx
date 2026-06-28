@@ -41,6 +41,7 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
     const getAdjustedRatio = (w: WorkerData) => {
       const readings = w.readings;
       const impediments = w.impediments;
+      if (readings === 0) return 100; // Put zero readings at the bottom
       return ((impediments + K * baseTargetRatio) / (readings + K)) * 100;
     };
 
@@ -51,7 +52,7 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
       if (adjA !== adjB) {
         return adjA - adjB;
       }
-      return b.readings - a.readings; // More readings is better
+      return b.readings - a.readings; // Tie-breaker: more readings is better
     });
     
     return workers.map((worker) => {
@@ -59,7 +60,7 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
       const exactRatio = worker.readings > 0 ? (worker.impediments / worker.readings) * 100 : 0;
       return {
         ...worker,
-        ratio: exactRatio, // Ensure exact double-precision ratio is displayed
+        ratio: exactRatio,
         rank: rankIndex + 1
       };
     });

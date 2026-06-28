@@ -1,7 +1,5 @@
-import { WorkerData } from './types';
-
 // Let's pre-populate with the exact data from the user's image
-export const initialWorkers: WorkerData[] = [
+export const initialWorkers: Array<{ id: string; name: string; readings: number; impediments: number; ratio: number }> = [
   { id: '1', name: 'AMANDA FERREIRA DE SOUZA', readings: 5551, impediments: 13, ratio: 0.23 },
   { id: '2', name: 'CLENILSON TORRES DE SOUZA', readings: 1562, impediments: 29, ratio: 1.86 },
   { id: '3', name: 'DALVINO DE JESUS OLIVEIRA', readings: 5346, impediments: 15, ratio: 0.28 },
