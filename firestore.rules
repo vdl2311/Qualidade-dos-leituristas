@@ -16,11 +16,13 @@ service cloud.firestore {
     }
 
     function isSupervisor() {
-      return isRoot() || (isAuthed() && getUserData().cargo == 'supervisor');
+      let data = getUserData();
+      return isRoot() || (isAuthed() && data != null && data.cargo == 'supervisor');
     }
 
     function isGerente() {
-      return isAuthed() && getUserData().cargo == 'gerente';
+      let data = getUserData();
+      return isAuthed() && data != null && data.cargo == 'gerente';
     }
 
     match /usuarios/{uid} {
@@ -37,13 +39,13 @@ service cloud.firestore {
     match /funcionarios/{id} {
       allow read: if true;
       allow create: if true;
-      allow update, delete: if isAuthed();
+      allow update, delete: if isAuthed() || isSupervisor() || isGerente();
     }
 
     match /estatisticas/{periodo} {
       allow read: if true;
       allow create: if true;
-      allow update, delete: if isAuthed();
+      allow update, delete: if isAuthed() || isSupervisor() || isGerente();
     }
 
     match /settings/{document} {
