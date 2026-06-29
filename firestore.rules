@@ -6,7 +6,9 @@ service cloud.firestore {
     }
     
     function getUserData() {
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) ?
+             get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data :
+             null;
     }
 
     function isRoot() {
@@ -15,6 +17,10 @@ service cloud.firestore {
 
     function isSupervisor() {
       return isRoot() || (isAuthed() && getUserData().cargo == 'supervisor');
+    }
+
+    function isGerente() {
+      return isAuthed() && getUserData().cargo == 'gerente';
     }
 
     match /usuarios/{uid} {
@@ -43,7 +49,7 @@ service cloud.firestore {
     match /settings/{document} {
       allow read: if true;
       allow create: if true;
-      allow update, delete: if isSupervisor();
+      allow update, delete: if isSupervisor() || isGerente();
     }
   }
 }

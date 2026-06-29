@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Upload, Save, UserPlus, Trash2, Settings as SettingsIcon, Search, LogOut, ShieldAlert, Calendar, Plus, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Upload, Save, UserPlus, Trash2, Settings as SettingsIcon, Search, LogOut, ShieldAlert, Calendar, Plus, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Funcionario, Usuario, Settings, WorkerData, EstatisticasMensais, PeriodEstatistica } from '../types';
 import { db, auth, firebaseConfig } from '../lib/firebase';
 import { doc, setDoc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
@@ -305,6 +305,17 @@ export default function AdminPanel({
         atualizadoEm: new Date().toISOString()
       }
     }));
+  };
+
+  const fixColaboradores = () => {
+    const updated = localFuncionarios.map(f => {
+      if (f.nome.toLowerCase().includes('colaborador')) {
+        return { ...f, cidade: 'caratinga' as const };
+      }
+      return f;
+    });
+    setLocalFuncionarios(updated);
+    alert('Base atualizada para colaboradores. Agora clique em "Salvar Alterações".');
   };
 
   const handleRemoveFuncionario = (id: string) => {
@@ -741,14 +752,23 @@ export default function AdminPanel({
                   <span>Importar Arquivo (CSV)</span>
                 </button>
                 
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-medium transition-colors shadow-sm text-sm disabled:opacity-50"
-                >
-                  <Save size={16} />
-                  <span>{isSaving ? 'Salvando...' : 'Salvar Alterações'}</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={fixColaboradores}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-xl font-medium transition-colors shadow-sm text-sm"
+                  >
+                    <AlertTriangle size={16} />
+                    <span>Fix Colaboradores</span>
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-medium transition-colors shadow-sm text-sm disabled:opacity-50"
+                  >
+                    <Save size={16} />
+                    <span>{isSaving ? 'Salvando...' : 'Salvar Alterações'}</span>
+                  </button>
+                </div>
               </div>
             </div>
 

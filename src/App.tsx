@@ -393,7 +393,20 @@ export default function App() {
   const computedWorkers: WorkerData[] = funcionarios
     .filter(f => f.ativo)
     .filter(f => {
-      // If we are showing "Todas" (Supervisor mode), pass all
+      // If supervisor, they can see everything.
+      if (currentUser?.cargo === 'supervisor') return true;
+
+      // If leiturista logged in, restrict to their base
+      if (loggedLeiturista) {
+        return f.cidade === loggedLeiturista.cidade;
+      }
+
+      // If gerente logged in, restrict to their base
+      if (currentUser?.cargo === 'gerente') {
+        return f.cidade === currentUser.cidade;
+      }
+
+      // Fallback for non-logged-in public view
       if (selectedCity === 'all' || selectedCity === 'todas') return true;
       return f.cidade === selectedCity;
     })
