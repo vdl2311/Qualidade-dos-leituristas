@@ -228,13 +228,6 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
         {/* Actions (Export) */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => handleExport('xlsx')}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-100 rounded-xl text-sm font-semibold cursor-pointer"
-          >
-            <Download size={16} />
-            <span>Exportar XLSX</span>
-          </button>
-          <button
             onClick={() => handleExport('xlsm')}
             className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-100 rounded-xl text-sm font-semibold cursor-pointer"
           >

@@ -310,16 +310,7 @@ export default function AdminPanel({
     }));
   };
 
-  const fixColaboradores = () => {
-    const updated = localFuncionarios.map(f => {
-      if (f.nome.toLowerCase().includes('colaborador')) {
-        return { ...f, cidade: 'caratinga' as const };
-      }
-      return f;
-    });
-    setLocalFuncionarios(updated);
-    alert('Base atualizada para colaboradores. Agora clique em "Salvar Alterações".');
-  };
+
 
   const handleRemoveFuncionario = (id: string) => {
     showConfirm("Deseja realmente excluir este funcionário? Isso removerá o registro dele de forma permanente das estatísticas e da lista.", () => {
@@ -387,9 +378,7 @@ export default function AdminPanel({
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Leituristas");
     
-    // Note: Generating .xlsm is NOT supported purely client-side without macros.
-    // We generate .xlsx which is fully compatible with Excel.
-    XLSX.writeFile(workbook, "Leituristas.xlsx");
+    XLSX.writeFile(workbook, "Leituristas.xlsm");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -418,7 +407,7 @@ export default function AdminPanel({
 
   const processImportedJSON = (data: any[]) => {
     if (!Array.isArray(data)) {
-      alert("Formato de dados retornado pela IA inválido.");
+      alert("Formato de dados retornado inválido.");
       return;
     }
 
@@ -427,8 +416,26 @@ export default function AdminPanel({
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      if (row.Nome) {
-        let func = localFuncionarios.find(f => f.nome.toUpperCase() === row.Nome.toUpperCase());
+      if (!row || typeof row !== 'object') continue;
+
+      const keys = Object.keys(row);
+      const findVal = (terms: string[]) => {
+        const foundKey = keys.find(k => {
+          const norm = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return terms.some(t => norm.includes(t));
+        });
+        return foundKey ? row[foundKey] : undefined;
+      };
+
+      const nomeVal = findVal(['nome', 'leiturista', 'colaborador', 'func']);
+      const leiturasVal = findVal(['leitura', 'readings', 'vol', 'total', 'prod', 'realiz']);
+      const impedimentosVal = findVal(['imped', 'impe', 'noco', 'nao', 'ocorrencia']);
+
+      if (nomeVal) {
+        const nomeStr = String(nomeVal).trim();
+        if (!nomeStr || !isNaN(Number(nomeStr))) continue;
+
+        let func = localFuncionarios.find(f => f.nome.toUpperCase() === nomeStr.toUpperCase());
         
         let id: string;
         if (func) {
@@ -439,7 +446,7 @@ export default function AdminPanel({
           
           importedFuncs.push({
             id,
-            nome: row.Nome.toUpperCase(),
+            nome: nomeStr.toUpperCase(),
             matricula: nextMatricula,
             cidade: (currentUser?.cidade && currentUser.cidade !== 'todas') ? currentUser.cidade : 'ipatinga',
             equipe: 'Equipe Importada',
@@ -447,8 +454,17 @@ export default function AdminPanel({
           });
         }
         
-        const leituras = typeof row.Leituras === 'number' ? row.Leituras : parseInt(row.Leituras, 10) || 0;
-        const impedimentos = typeof row.Impedimentos === 'number' ? row.Impedimentos : parseInt(row.Impedimentos, 10) || 0;
+        const parseNum = (val: any): number => {
+          if (val === undefined || val === null) return 0;
+          if (typeof val === 'number') return val;
+          let s = String(val).replace(/["']/g, '').trim();
+          s = s.replace(/[,.]00$/, '');
+          s = s.replace(/\D/g, '');
+          return parseInt(s, 10) || 0;
+        };
+
+        const leituras = parseNum(leiturasVal);
+        const impedimentos = parseNum(impedimentosVal);
         
         importedStats[id] = {
           leituras,
@@ -465,9 +481,22 @@ export default function AdminPanel({
         setLocalFuncionarios(prev => [...importedFuncs, ...prev]);
       }
       setLocalEstatisticas(prev => ({ ...prev, ...importedStats }));
-      alert(`${importedFuncs.length} novos leituristas, e ${Object.keys(importedStats).length} registros processados da imagem. Não se esqueça de clicar em 'Salvar Alterações'.`);
+      
+      const newCount = importedFuncs.length;
+      const totalCount = Object.keys(importedStats).length;
+      const updatedCount = totalCount - newCount;
+
+      let msg = '';
+      if (newCount > 0 && updatedCount > 0) {
+        msg = `${newCount} novos leituristas cadastrados e ${updatedCount} existentes atualizados.`;
+      } else if (newCount > 0) {
+        msg = `${newCount} novos leituristas cadastrados do arquivo.`;
+      } else {
+        msg = `${updatedCount} leituristas existentes atualizados do arquivo.`;
+      }
+      alert(msg + " Não se esqueça de clicar em 'Salvar Alterações'.");
     } else {
-      alert("Não foi possível extrair os dados da imagem (nome, leituras, impedimentos).");
+      alert("Não foi possível encontrar colunas de leituristas (nome, leituras, impedimentos) no arquivo importado.");
     }
   };
 
@@ -793,24 +822,17 @@ export default function AdminPanel({
                   disabled={isSaving}
                 >
                   <Upload size={16} />
-                  <span>Importar Arquivo (CSV)</span>
+                  <span>Importar Arquivo (CSV, XLSX, XLSM)</span>
                 </button>
                 <button
                   onClick={handleDownloadExcel}
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-xl font-medium transition-colors text-sm"
                 >
                   <Upload size={16} className="rotate-180" />
-                  <span>Baixar XLSX (Excel)</span>
+                  <span>Baixar XLSM</span>
                 </button>
                 
                 <div className="flex gap-2">
-                  <button
-                    onClick={fixColaboradores}
-                    className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-xl font-medium transition-colors shadow-sm text-sm"
-                  >
-                    <AlertTriangle size={16} />
-                    <span>Fix Colaboradores</span>
-                  </button>
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
