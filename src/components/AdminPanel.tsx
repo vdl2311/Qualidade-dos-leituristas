@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { motion } from 'motion/react';
 import { Upload, Save, UserPlus, Trash2, Settings as SettingsIcon, Search, LogOut, ShieldAlert, Calendar, Plus, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Funcionario, Usuario, Settings, WorkerData, EstatisticasMensais, PeriodEstatistica } from '../types';
@@ -368,20 +369,46 @@ export default function AdminPanel({
   };
 
   // CSV Import
+  const handleDownloadExcel = () => {
+    const dataToExport = filteredFuncionarios.map(f => {
+      const stats = localEstatisticas[f.id] || { leituras: 0, impedimentos: 0, percentual: 0 };
+      return {
+        Matrícula: f.matricula,
+        Nome: f.nome,
+        Base: f.cidade,
+        Leituras: stats.leituras,
+        Impedimentos: stats.impedimentos,
+        Percentual: `${stats.percentual.toFixed(2)}%`
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leituristas");
+    
+    // Note: Generating .xlsm is NOT supported purely client-side without macros.
+    // We generate .xlsx which is fully compatible with Excel.
+    XLSX.writeFile(workbook, "Leituristas.xlsx");
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const csvData = event.target?.result as string;
-        parseCSV(csvData);
-      };
-      reader.readAsText(file);
-    } else {
-      alert("Por favor, selecione um arquivo CSV válido.");
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const data = event.target?.result;
+      if (file.name.endsWith('.csv')) {
+        parseCSV(data as string);
+      } else {
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        processImportedJSON(jsonData);
+      }
+    };
+    reader.readAsBinaryString(file);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -751,7 +778,7 @@ export default function AdminPanel({
               <div className="flex flex-wrap items-center gap-3">
                 <input 
                   type="file" 
-                  accept=".csv" 
+                  accept=".csv, .xlsx, .xlsm, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel.sheet.macroEnabled.12" 
                   className="hidden" 
                   ref={fileInputRef}
                   onChange={handleFileUpload}
@@ -763,6 +790,13 @@ export default function AdminPanel({
                 >
                   <Upload size={16} />
                   <span>Importar Arquivo (CSV)</span>
+                </button>
+                <button
+                  onClick={handleDownloadExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-xl font-medium transition-colors text-sm"
+                >
+                  <Upload size={16} className="rotate-180" />
+                  <span>Baixar XLSX (Excel)</span>
                 </button>
                 
                 <div className="flex gap-2">
