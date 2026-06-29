@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, Download, RefreshCw } from 'lucide-react';
 import { WorkerData, SortField, SortOrder } from '../types';
@@ -116,34 +117,22 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
     return sortOrder === 'asc' ? <ChevronUp size={14} className="inline ml-1 text-indigo-600" /> : <ChevronDown size={14} className="inline ml-1 text-indigo-600" />;
   };
 
-  // Export to CSV helper
-  const exportToCSV = () => {
-    const headers = ['Posicao', 'Nome', 'Leituras', 'Impedimentos', 'Relacao %', 'Status'];
-    const rows = sortedWorkers.map(w => {
-      const isWithin = w.ratio <= targetRatio ? 'Dentro da Meta' : 'Fora da Meta';
-      return [
-        `${w.rank}º`,
-        w.name,
-        w.readings.toString(),
-        w.impediments.toString(),
-        `${w.ratio.toFixed(2)}%`,
-        isWithin
-      ];
-    });
-
-    const csvContent = [
-      headers.join(';'),
-      ...rows.map(r => r.join(';'))
-    ].join('\n');
-
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `ranking-impedimentos-${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Export to Excel helper
+  const handleExport = (type: 'xlsx' | 'xlsm') => {
+    const dataToExport = sortedWorkers.map(w => ({
+      'Posicao': `${w.rank}º`,
+      'Nome': w.name,
+      'Matricula': w.matricula,
+      'Cidade': w.cidade,
+      'Leituras': w.readings,
+      'Impedimentos': w.impediments,
+      'Relacao %': `${w.ratio.toFixed(2)}%`,
+      'Status': w.ratio <= targetRatio ? 'Dentro da Meta' : 'Fora da Meta'
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Ranking");
+    XLSX.writeFile(workbook, `Ranking.${type}`);
   };
 
   return (
@@ -239,12 +228,18 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
         {/* Actions (Export) */}
         <div className="flex items-center gap-3">
           <button
-            id="export-csv-btn"
-            onClick={exportToCSV}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors border border-indigo-100 rounded-xl text-sm font-semibold cursor-pointer"
+            onClick={() => handleExport('xlsx')}
+            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-100 rounded-xl text-sm font-semibold cursor-pointer"
           >
             <Download size={16} />
-            <span>Exportar CSV</span>
+            <span>Exportar XLSX</span>
+          </button>
+          <button
+            onClick={() => handleExport('xlsm')}
+            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-100 rounded-xl text-sm font-semibold cursor-pointer"
+          >
+            <Download size={16} />
+            <span>Exportar XLSM</span>
           </button>
         </div>
       </div>
