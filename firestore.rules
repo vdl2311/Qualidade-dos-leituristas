@@ -37,21 +37,18 @@ service cloud.firestore {
     }
 
     match /funcionarios/{id} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isAuthed() || isSupervisor() || isGerente();
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && (isRoot() || isSupervisor() || isGerente());
     }
 
     match /estatisticas/{periodo} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isAuthed() || isSupervisor() || isGerente();
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed() && (isRoot() || isSupervisor() || isGerente());
     }
 
     match /settings/{document} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isSupervisor() || isGerente();
+      allow read: if isAuthed();
+      allow create, update, delete: if isSupervisor() || isGerente();
     }
   }
 }

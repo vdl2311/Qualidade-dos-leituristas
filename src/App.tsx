@@ -393,22 +393,17 @@ export default function App() {
   const computedWorkers: WorkerData[] = funcionarios
     .filter(f => f.ativo)
     .filter(f => {
-      // If supervisor, they can see everything.
+      // If a specific city is selected, ALWAYS filter by it.
+      if (selectedCity && selectedCity !== 'all' && selectedCity !== 'todas') {
+        return f.cidade === selectedCity;
+      }
+
+      // If no specific city selected, apply role-based filtering
       if (currentUser?.cargo === 'supervisor') return true;
+      if (loggedLeiturista) return f.cidade === loggedLeiturista.cidade;
+      if (currentUser?.cargo === 'gerente') return f.cidade === currentUser.cidade;
 
-      // If leiturista logged in, restrict to their base
-      if (loggedLeiturista) {
-        return f.cidade === loggedLeiturista.cidade;
-      }
-
-      // If gerente logged in, restrict to their base
-      if (currentUser?.cargo === 'gerente') {
-        return f.cidade === currentUser.cidade;
-      }
-
-      // Fallback for non-logged-in public view
-      if (selectedCity === 'all' || selectedCity === 'todas') return true;
-      return f.cidade === selectedCity;
+      return true;
     })
     .map(f => {
       const stats = estatisticas[f.id] || {
