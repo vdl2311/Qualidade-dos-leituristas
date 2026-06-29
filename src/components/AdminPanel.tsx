@@ -58,6 +58,7 @@ export default function AdminPanel({
   // Local drafts of current period stats and funcionarios to avoid unsaved firestore writes
   const [localFuncionarios, setLocalFuncionarios] = useState<Funcionario[]>([]);
   const [localEstatisticas, setLocalEstatisticas] = useState<EstatisticasMensais>({});
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Custom dialog notifications
   const [dialog, setDialog] = useState<{
@@ -326,6 +327,18 @@ export default function AdminPanel({
       delete updatedStats[id];
       setLocalEstatisticas(updatedStats);
     }, "Excluir Leiturista");
+  };
+
+  const handleDeleteSelected = () => {
+    showConfirm(`Deseja realmente excluir permanentemente os ${selectedIds.length} leituristas selecionados?`, () => {
+      setLocalFuncionarios(prev => prev.filter(f => !selectedIds.includes(f.id)));
+      setLocalEstatisticas(prev => {
+        const updatedStats = { ...prev };
+        selectedIds.forEach(id => delete updatedStats[id]);
+        return updatedStats;
+      });
+      setSelectedIds([]);
+    }, "Excluir Selecionados");
   };
 
   const handleFuncFieldChange = (id: string, field: keyof Funcionario, value: any) => {
@@ -823,6 +836,15 @@ export default function AdminPanel({
                   <UserPlus size={16} />
                   <span>Novo Leiturista</span>
                 </button>
+                {selectedIds.length > 0 && (
+                  <button
+                    onClick={handleDeleteSelected}
+                    className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 border border-red-100 rounded-lg font-medium transition-colors text-sm whitespace-nowrap"
+                  >
+                    <Trash2 size={16} />
+                    <span>Excluir Selecionados ({selectedIds.length})</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -831,6 +853,17 @@ export default function AdminPanel({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                    <th className="px-4 py-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.length === filteredFuncionarios.length && filteredFuncionarios.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedIds(filteredFuncionarios.map(f => f.id));
+                          else setSelectedIds([]);
+                        }}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </th>
                     <th className="px-4 py-3">Matrícula</th>
                     <th className="px-4 py-3">Nome</th>
                     <th className="px-4 py-3 w-32">Base</th>
@@ -851,6 +884,17 @@ export default function AdminPanel({
 
                     return (
                       <tr key={f.id} className="hover:bg-slate-50/40 transition-colors">
+                        <td className="px-4 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(f.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedIds([...selectedIds, f.id]);
+                              else setSelectedIds(selectedIds.filter(id => id !== f.id));
+                            }}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                        </td>
                         <td className="px-4 py-2 text-sm font-semibold text-slate-500">
                           <input
                             type="number"
@@ -914,7 +958,7 @@ export default function AdminPanel({
                   })}
                   {filteredFuncionarios.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">
+                      <td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">
                         Nenhum funcionário cadastrado ou encontrado para esta busca.
                       </td>
                     </tr>
