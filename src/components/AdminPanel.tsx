@@ -934,11 +934,7 @@ export default function AdminPanel({
                 </div>
               </div>
               
-              <div className="p-4 bg-slate-50 text-slate-600 text-xs rounded-2xl border border-slate-100 flex flex-col justify-center">
-                <strong className="mb-1 block text-slate-800">Instruções de Importação</strong>
-                <p className="mb-2">Utilize as opções de importar (CSV/Excel) ou forneça uma imagem dos dados para extração automatizada.</p>
-                <p><b>Estrutura CSV:</b> Nome;Leituras;Impedimentos.</p>
-              </div>
+
             </div>
 
             {/* Employee Management Section */}

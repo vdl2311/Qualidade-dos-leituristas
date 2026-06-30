@@ -9,9 +9,10 @@ interface RankingTableProps {
   targetRatio: number;
   onEditWorker?: (worker: WorkerData) => void;
   isAdminMode?: boolean;
+  hideExport?: boolean;
 }
 
-export default function RankingTable({ workers, targetRatio, onEditWorker, isAdminMode = false }: RankingTableProps) {
+export default function RankingTable({ workers, targetRatio, onEditWorker, isAdminMode = false, hideExport = false }: RankingTableProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'in_goal' | 'out_goal'>('all');
   const [sortField, setSortField] = useState<SortField>('rank');
@@ -226,15 +227,17 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
         </div>
 
         {/* Actions (Export) */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => handleExport('xlsm')}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-100 rounded-xl text-sm font-semibold cursor-pointer"
-          >
-            <Download size={16} />
-            <span>Exportar XLSM</span>
-          </button>
-        </div>
+        {!hideExport && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleExport('xlsm')}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-100 rounded-xl text-sm font-semibold cursor-pointer"
+            >
+              <Download size={16} />
+              <span>Exportar XLSM</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sorting Tabs for Mobile exactly as shown in the user's reference screenshot */}

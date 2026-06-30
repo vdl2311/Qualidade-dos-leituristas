@@ -810,6 +810,7 @@ export default function App() {
                 workers={computedWorkers} 
                 targetRatio={settings.targetRatio} 
                 isAdminMode={false}
+                hideExport={!!loggedLeiturista}
               />
             )}
 
