@@ -13,7 +13,8 @@ export default function InstallAppPrompt() {
     // 1. Check if already running in standalone mode (installed)
     const isStandaloneMode = 
       window.matchMedia('(display-mode: standalone)').matches || 
-      (navigator as any).standalone === true;
+      (navigator as any).standalone === true ||
+      localStorage.getItem('pwa-prompt-installed') === 'true';
     
     setIsStandalone(isStandaloneMode);
 
@@ -22,8 +23,8 @@ export default function InstallAppPrompt() {
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIosDevice);
 
-    // 3. If already dismissed in this session, don't show automatically
-    const isDismissed = sessionStorage.getItem('pwa-prompt-dismissed') === 'true';
+    // 3. If already dismissed, don't show automatically
+    const isDismissed = localStorage.getItem('pwa-prompt-dismissed') === 'true';
 
     // 4. Handle beforeinstallprompt event for Android / Chrome / Edge
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -34,7 +35,14 @@ export default function InstallAppPrompt() {
       }
     };
 
+    const handleAppInstalled = () => {
+      localStorage.setItem('pwa-prompt-installed', 'true');
+      setIsStandalone(true);
+      setShowBanner(false);
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     // 5. For iOS, we can show the custom install prompt automatically after 4 seconds
     // if not in standalone and not dismissed
@@ -42,7 +50,11 @@ export default function InstallAppPrompt() {
       const timer = setTimeout(() => {
         setShowBanner(true);
       }, 4000);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('appinstalled', handleAppInstalled);
+      };
     }
 
     // Fallback: If on mobile Chrome/Firefox/etc. and beforeinstallprompt didn't trigger, 
@@ -51,11 +63,16 @@ export default function InstallAppPrompt() {
       const timer = setTimeout(() => {
         setShowBanner(true);
       }, 8000);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('appinstalled', handleAppInstalled);
+      };
     }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, [deferredPrompt]);
 
@@ -70,6 +87,7 @@ export default function InstallAppPrompt() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         console.log('User accepted the install prompt');
+        localStorage.setItem('pwa-prompt-installed', 'true');
         setShowBanner(false);
       }
       setDeferredPrompt(null);
@@ -80,7 +98,7 @@ export default function InstallAppPrompt() {
   };
 
   const handleDismiss = () => {
-    sessionStorage.setItem('pwa-prompt-dismissed', 'true');
+    localStorage.setItem('pwa-prompt-dismissed', 'true');
     setShowBanner(false);
   };
 
