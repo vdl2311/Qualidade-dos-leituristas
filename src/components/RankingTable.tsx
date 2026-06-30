@@ -426,9 +426,9 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
                           <button
                             id={`edit-worker-btn-${worker.id}`}
                             onClick={() => onEditWorker(worker)}
-                            className="w-7 h-7 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-200"
+                            className="px-2.5 py-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-100"
                           >
-                            <span className="text-xs font-bold">✎</span>
+                            Editar
                           </button>
                         </td>
                       )}

@@ -828,14 +828,36 @@ export default function AdminPanel({
         {/* Navigation Tabs */}
         <div className="flex gap-2 border-b border-slate-100 pb-2 mb-6">
           <button
-            onClick={() => setActiveTab('data')}
+            onClick={() => {
+              if (hasChanges) {
+                showConfirm("Você tem alterações não salvas. Trocar de aba irá descartá-las.", () => {
+                  setActiveTab('data');
+                  setHasChanges(false);
+                  setLocalFuncionarios(funcionarios);
+                  setLocalEstatisticas(estatisticas);
+                }, "Alterações Pendentes");
+              } else {
+                setActiveTab('data');
+              }
+            }}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'data' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
           >
             Lançamentos ({currentUser?.cargo === 'gerente' ? currentUser.cidade.toUpperCase() : 'TODAS'})
           </button>
           {currentUser?.cargo === 'supervisor' && (
             <button
-              onClick={() => setActiveTab('admins')}
+              onClick={() => {
+                if (hasChanges) {
+                  showConfirm("Você tem alterações não salvas. Trocar de aba irá descartá-las.", () => {
+                    setActiveTab('admins');
+                    setHasChanges(false);
+                    setLocalFuncionarios(funcionarios);
+                    setLocalEstatisticas(estatisticas);
+                  }, "Alterações Pendentes");
+                } else {
+                  setActiveTab('admins');
+                }
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'admins' ? 'bg-slate-100 text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Usuários
@@ -1063,10 +1085,10 @@ export default function AdminPanel({
                         <td className="px-4 py-2 text-center">
                           <button
                             onClick={() => handleRemoveFuncionario(f.id)}
-                            className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-slate-200"
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                             title="Remover leiturista"
                           >
-                            <span className="text-xs font-bold">✕</span>
+                            <Trash2 size={16} />
                           </button>
                         </td>
                       </tr>
