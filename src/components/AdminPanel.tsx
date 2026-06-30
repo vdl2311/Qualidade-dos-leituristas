@@ -40,6 +40,7 @@ export default function AdminPanel({
   const [activeTab, setActiveTab] = useState<'data' | 'admins'>('data');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const [localTargetRatio, setLocalTargetRatio] = useState(settings.targetRatio.toString());
   const [localLogo, setLocalLogo] = useState(settings.logoBase64 || '');
   const [showNewPeriodInput, setShowNewPeriodInput] = useState(false);
@@ -113,6 +114,14 @@ export default function AdminPanel({
       setLocalLogo(settings.logoBase64);
     }
   }, [settings]);
+
+  useEffect(() => {
+    const changes = JSON.stringify(localFuncionarios) !== JSON.stringify(funcionarios) ||
+                    JSON.stringify(localEstatisticas) !== JSON.stringify(estatisticas) ||
+                    localTargetRatio !== settings.targetRatio.toString() ||
+                    localLogo !== (settings.logoBase64 || '');
+    setHasChanges(changes);
+  }, [localFuncionarios, localEstatisticas, localTargetRatio, localLogo, funcionarios, estatisticas, settings]);
 
   // Load registered users (Supervisors & Gerentes) on admins tab click
   useEffect(() => {
@@ -413,10 +422,14 @@ export default function AdminPanel({
 
     const importedFuncs: Funcionario[] = [];
     const importedStats: EstatisticasMensais = {};
+    let skippedRows = 0;
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      if (!row || typeof row !== 'object') continue;
+      if (!row || typeof row !== 'object') {
+        skippedRows++;
+        continue;
+      }
 
       const keys = Object.keys(row);
       const findVal = (terms: string[]) => {
@@ -431,49 +444,58 @@ export default function AdminPanel({
       const leiturasVal = findVal(['leitura', 'readings', 'vol', 'total', 'prod', 'realiz']);
       const impedimentosVal = findVal(['imped', 'impe', 'noco', 'nao', 'ocorrencia']);
 
-      if (nomeVal) {
-        const nomeStr = String(nomeVal).trim();
-        if (!nomeStr || !isNaN(Number(nomeStr))) continue;
-
-        let func = localFuncionarios.find(f => f.nome.toUpperCase() === nomeStr.toUpperCase());
-        
-        let id: string;
-        if (func) {
-          id = func.id;
-        } else {
-          id = `func_imported_${Date.now()}_${i}`;
-          const nextMatricula = localFuncionarios.length + importedFuncs.length + 1001;
-          
-          importedFuncs.push({
-            id,
-            nome: nomeStr.toUpperCase(),
-            matricula: nextMatricula,
-            cidade: (currentUser?.cidade && currentUser.cidade !== 'todas') ? currentUser.cidade : 'ipatinga',
-            equipe: 'Equipe Importada',
-            ativo: true
-          });
-        }
-        
-        const parseNum = (val: any): number => {
-          if (val === undefined || val === null) return 0;
-          if (typeof val === 'number') return val;
-          let s = String(val).replace(/["']/g, '').trim();
-          s = s.replace(/[,.]00$/, '');
-          s = s.replace(/\D/g, '');
-          return parseInt(s, 10) || 0;
-        };
-
-        const leituras = parseNum(leiturasVal);
-        const impedimentos = parseNum(impedimentosVal);
-        
-        importedStats[id] = {
-          leituras,
-          impedimentos,
-          percentual: leituras > 0 ? parseFloat(((impedimentos / leituras) * 100).toFixed(2)) : 0,
-          meta: parseFloat(localTargetRatio) || 0.50,
-          atualizadoEm: new Date().toISOString()
-        };
+      if (!nomeVal) {
+        skippedRows++;
+        continue;
       }
+
+      const nomeStr = String(nomeVal).trim();
+      if (!nomeStr || !isNaN(Number(nomeStr))) {
+        skippedRows++;
+        continue;
+      }
+
+      let func = localFuncionarios.find(f => f.nome.toUpperCase() === nomeStr.toUpperCase());
+      
+      let id: string;
+      if (func) {
+        id = func.id;
+      } else {
+        id = `func_imported_${Date.now()}_${i}`;
+        const nextMatricula = localFuncionarios.length + importedFuncs.length + 1001;
+        
+        importedFuncs.push({
+          id,
+          nome: nomeStr.toUpperCase(),
+          matricula: nextMatricula,
+          cidade: (currentUser?.cidade && currentUser.cidade !== 'todas') ? currentUser.cidade : 'ipatinga',
+          equipe: 'Equipe Importada',
+          ativo: true
+        });
+      }
+      
+      const parseNum = (val: any): number => {
+        if (val === undefined || val === null) return 0;
+        if (typeof val === 'number') return val;
+        
+        let s = String(val).trim();
+        s = s.replace(/[^\d.,]/g, '');
+        s = s.replace(',', '.');
+        
+        const num = parseFloat(s);
+        return isNaN(num) ? 0 : Math.round(num);
+      };
+
+      const leituras = parseNum(leiturasVal);
+      const impedimentos = parseNum(impedimentosVal);
+      
+      importedStats[id] = {
+        leituras,
+        impedimentos,
+        percentual: leituras > 0 ? parseFloat(((impedimentos / leituras) * 100).toFixed(2)) : 0,
+        meta: parseFloat(localTargetRatio) || 0.50,
+        atualizadoEm: new Date().toISOString()
+      };
     }
 
     if (importedFuncs.length > 0 || Object.keys(importedStats).length > 0) {
@@ -494,9 +516,12 @@ export default function AdminPanel({
       } else {
         msg = `${updatedCount} leituristas existentes atualizados do arquivo.`;
       }
+      
+      if (skippedRows > 0) msg += ` (${skippedRows} linhas ignoradas por dados inválidos).`;
+
       alert(msg + " Não se esqueça de clicar em 'Salvar Alterações'.");
     } else {
-      alert("Não foi possível encontrar colunas de leituristas (nome, leituras, impedimentos) no arquivo importado.");
+      alert("Não foi possível encontrar colunas de leituristas (nome, leituras, impedimentos) no arquivo importado." + (skippedRows > 0 ? ` (${skippedRows} linhas ignoradas)` : ""));
     }
   };
 
@@ -758,7 +783,20 @@ export default function AdminPanel({
               <Calendar size={16} className="text-slate-400" />
               <select
                 value={currentPeriod}
-                onChange={(e) => setCurrentPeriod(e.target.value)}
+                onChange={(e) => {
+                  const newPeriod = e.target.value;
+                  if (hasChanges) {
+                    showConfirm("Você tem alterações não salvas. Trocar de período irá descartá-las.", () => {
+                      setCurrentPeriod(newPeriod);
+                      setHasChanges(false);
+                      // Force local state reload
+                      setLocalFuncionarios(funcionarios);
+                      setLocalEstatisticas(estatisticas);
+                    }, "Alterações Pendentes");
+                  } else {
+                    setCurrentPeriod(newPeriod);
+                  }
+                }}
                 className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none cursor-pointer"
               >
                 {availablePeriods.map(p => (
@@ -832,12 +870,18 @@ export default function AdminPanel({
                   <span>Baixar XLSM</span>
                 </button>
                 
-                <div className="flex gap-2">
+                <div className="flex items-center gap-3">
+                  {hasChanges && (
+                    <span className="text-xs font-bold text-amber-600 animate-pulse">
+                      Alterações pendentes
+                    </span>
+                  )}
                   <button
                     onClick={handleSave}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-medium transition-colors shadow-sm text-sm disabled:opacity-50"
+                    disabled={isSaving || !hasChanges}
+                    className="relative flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-medium transition-colors shadow-sm text-sm disabled:opacity-50"
                   >
+                    {hasChanges && <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full animate-pulse" />}
                     <Save size={16} />
                     <span>{isSaving ? 'Salvando...' : 'Salvar Alterações'}</span>
                   </button>
@@ -1019,10 +1063,10 @@ export default function AdminPanel({
                         <td className="px-4 py-2 text-center">
                           <button
                             onClick={() => handleRemoveFuncionario(f.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            className="w-7 h-7 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-slate-200"
                             title="Remover leiturista"
                           >
-                            <Trash2 size={16} />
+                            <span className="text-xs font-bold">✕</span>
                           </button>
                         </td>
                       </tr>

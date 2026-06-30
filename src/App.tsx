@@ -72,6 +72,10 @@ export default function App() {
   const [leituristaAuthSuccess, setLeituristaAuthSuccess] = useState('');
 
   const [activeTab, setActiveTab] = useState<'ranking' | 'charts' | 'admin'>('ranking');
+  
+  // Login Flow State
+  const [loginStep, setLoginStep] = useState<'matricula' | 'confirm'>('matricula');
+  const [tempLeiturista, setTempLeiturista] = useState<Funcionario | null>(null);
 
   // Synchronize city when leiturista logs in
   useEffect(() => {
@@ -334,40 +338,35 @@ export default function App() {
     }
   };
 
-  const handleLeituristaLogin = async () => {
-    try {
-      setLeituristaAuthError('');
-      setLeituristaAuthSuccess('');
-
-      if (!leituristaMatricula) {
-        setLeituristaAuthError("Por favor, preencha a sua matrícula.");
-        return;
-      }
-
-      const matNum = parseInt(leituristaMatricula.trim(), 10);
-      if (isNaN(matNum)) {
-        setLeituristaAuthError("A matrícula deve ser um número.");
-        return;
-      }
-
-      // Find worker details
-      const matched = funcionarios.find(f => f.matricula === matNum && f.ativo);
-      if (!matched) {
-        setLeituristaAuthError("Matrícula não cadastrada ou desativada no sistema. Contate seu supervisor.");
-        return;
-      }
-
-      // Successful login
-      setLoggedLeiturista(matched);
-      localStorage.setItem('rankdash_leiturista', JSON.stringify(matched));
-      setSelectedCity(matched.cidade);
-      localStorage.setItem('rankdash_cidade', matched.cidade);
-      setLeituristaMatricula('');
-      setLeituristaAuthSuccess("Acesso realizado com sucesso!");
-    } catch (e: any) {
-      console.error(e);
-      setLeituristaAuthError("Erro ao acessar: " + e.message);
+  const handleMatriculaContinuar = () => {
+    setLeituristaAuthError('');
+    if (!leituristaMatricula) {
+      setLeituristaAuthError("Por favor, preencha a sua matrícula.");
+      return;
     }
+    const matNum = parseInt(leituristaMatricula.trim(), 10);
+    if (isNaN(matNum)) {
+      setLeituristaAuthError("A matrícula deve ser um número.");
+      return;
+    }
+    const matched = funcionarios.find(f => f.matricula === matNum && f.ativo);
+    if (!matched) {
+      setLeituristaAuthError("Matrícula não cadastrada ou desativada.");
+      return;
+    }
+    setTempLeiturista(matched);
+    setLoginStep('confirm');
+  };
+
+  const handleConfirmarLogin = () => {
+    if (!tempLeiturista) return;
+    setLoggedLeiturista(tempLeiturista);
+    localStorage.setItem('rankdash_leiturista', JSON.stringify(tempLeiturista));
+    setSelectedCity(tempLeiturista.cidade);
+    localStorage.setItem('rankdash_cidade', tempLeiturista.cidade);
+    setLeituristaMatricula('');
+    setTempLeiturista(null);
+    setLoginStep('matricula');
   };
 
   const handleLeituristaLogout = () => {
@@ -376,6 +375,8 @@ export default function App() {
     setSelectedCity('');
     localStorage.removeItem('rankdash_cidade');
     setActiveTab('ranking');
+    setLoginStep('matricula');
+    setTempLeiturista(null);
   };
 
   const handleSelectCityForEmployee = (city: string) => {
@@ -453,7 +454,7 @@ export default function App() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-100 shadow-xl space-y-6 animate-fade-in"
+          className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-100 shadow-xl space-y-8 animate-fade-in"
         >
           <div className="text-center">
             <img
@@ -465,199 +466,152 @@ export default function App() {
             <h1 className="text-2xl font-black text-slate-800 tracking-tight font-display mt-4">
               Radar do Leiturista
             </h1>
-            <p className="text-xs text-slate-400 font-medium mt-1">
-              Painel de Desempenho e Ranking do Leiturista
+            <p className="text-sm text-slate-500 font-medium mt-1">
+              {loginStep === 'matricula' ? 'Digite sua matrícula para começar' : 'Confirmação antes de entrar'}
             </p>
           </div>
 
-          {/* Navigation Tabs for Leiturista / Admin */}
-          <div className="flex border border-slate-100 p-1 bg-slate-50 rounded-2xl">
-            <button
-              onClick={() => {
-                setLoginTab('leiturista');
-                setAdminError('');
-                setLeituristaAuthError('');
-                setIsForgotPassword(false);
-              }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all ${
-                loginTab === 'leiturista'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Leiturista
-            </button>
-            <button
-              onClick={() => {
-                setLoginTab('admin');
-                setAdminError('');
-                setLeituristaAuthError('');
-                setIsForgotPassword(false);
-              }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all ${
-                loginTab === 'admin'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Gerente / Supervisor
-            </button>
+          <div className="space-y-4 animate-fade-in">
+            {loginTab === 'leiturista' ? (
+              <>
+                {loginStep === 'matricula' ? (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Matrícula</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="0000"
+                        value={leituristaMatricula}
+                        onChange={(e) => {
+                          setLeituristaMatricula(e.target.value);
+                          setLeituristaAuthError('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleMatriculaContinuar();
+                        }}
+                        className="w-full px-4 py-4 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-lg bg-slate-50 font-bold text-slate-800 text-center tracking-widest"
+                      />
+                    </div>
+                    {leituristaAuthError && (
+                      <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold rounded-xl text-center">
+                        {leituristaAuthError}
+                      </div>
+                    )}
+                    <button
+                      onClick={handleMatriculaContinuar}
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all text-sm shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.98]"
+                    >
+                      Continuar
+                    </button>
+                  </>
+                ) : (
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
+                        {tempLeiturista?.nome.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800">{tempLeiturista?.nome}</h3>
+                        <p className="text-xs text-slate-500">Matrícula {tempLeiturista?.matricula} · {tempLeiturista?.cidade}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleConfirmarLogin}
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all text-sm"
+                    >
+                      É você? Entrar no painel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLoginStep('matricula');
+                        setTempLeiturista(null);
+                      }}
+                      className="w-full py-2 text-xs font-bold text-slate-500 hover:text-slate-800"
+                    >
+                      Não sou eu, corrigir matrícula
+                    </button>
+                  </div>
+                )}
+                
+                <div className="text-center pt-4 border-t border-slate-100">
+                  <p className="text-xs text-slate-500 font-medium">
+                    É gerente ou supervisor?{' '}
+                    <button
+                      onClick={() => {
+                        setLoginTab('admin');
+                        setAdminError('');
+                        setLeituristaAuthError('');
+                        setIsForgotPassword(false);
+                      }}
+                      className="text-indigo-600 font-bold hover:underline"
+                    >
+                      Entrar com e-mail
+                    </button>
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4 animate-fade-in">
+                {isForgotPassword ? (
+                  <>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 mb-1">Recuperar Senha</h3>
+                      <p className="text-xs text-slate-500 mb-3">Digite seu e-mail para receber um link.</p>
+                      <input
+                        type="email"
+                        value={adminEmail}
+                        onChange={(e) => {
+                          setAdminEmail(e.target.value);
+                          setAdminError('');
+                          setResetMessage('');
+                        }}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-slate-50 font-semibold text-slate-700"
+                        placeholder="Seu e-mail"
+                      />
+                    </div>
+                    {adminError && <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold rounded-xl text-center">{adminError}</div>}
+                    {resetMessage && <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-semibold rounded-xl text-center">{resetMessage}</div>}
+                    <div className="flex gap-2">
+                      <button onClick={() => { setIsForgotPassword(false); setAdminError(''); }} className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-200 transition-colors">Voltar</button>
+                      <button onClick={handlePasswordReset} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-xs hover:bg-indigo-700 transition-colors">Enviar E-mail</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">E-mail</label>
+                      <input
+                        type="email"
+                        value={adminEmail}
+                        onChange={(e) => { setAdminEmail(e.target.value); setAdminError(''); }}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-slate-50 font-semibold text-slate-700"
+                        placeholder="Seu e-mail"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Senha</label>
+                      <input
+                        type="password"
+                        value={adminPassword}
+                        onChange={(e) => { setAdminPassword(e.target.value); setAdminError(''); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleAdminAuth(); }}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-slate-50 font-semibold text-slate-700"
+                        placeholder="Sua senha"
+                      />
+                    </div>
+                    {adminError && <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold rounded-xl text-center">{adminError}</div>}
+                    <div className="flex justify-between items-center">
+                       <button onClick={() => { setLoginTab('leiturista'); setAdminError(''); }} className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline">Voltar para Leiturista</button>
+                       <button onClick={() => setIsForgotPassword(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold hover:underline">Esqueceu a senha?</button>
+                    </div>
+                    <button onClick={handleAdminAuth} className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all text-sm shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.98]">Acessar Painel</button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-
-          {loginTab === 'leiturista' ? (
-            <div className="space-y-4 animate-fade-in">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Número da Matrícula</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="Digite sua matrícula da empresa (Ex: 1001)"
-                  value={leituristaMatricula}
-                  onChange={(e) => {
-                    setLeituristaMatricula(e.target.value);
-                    setLeituristaAuthError('');
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleLeituristaLogin();
-                    }
-                  }}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-slate-50 font-semibold text-slate-700"
-                />
-              </div>
-
-              {leituristaAuthError && (
-                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold rounded-xl text-center">
-                  {leituristaAuthError}
-                </div>
-              )}
-
-              {leituristaAuthSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-semibold rounded-xl text-center">
-                  {leituristaAuthSuccess}
-                </div>
-              )}
-
-              <button
-                onClick={handleLeituristaLogin}
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all text-sm shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.98]"
-              >
-                Entrar no Painel
-              </button>
-            </div>
-          ) : isForgotPassword ? (
-            <div className="space-y-4 animate-fade-in">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 mb-1">Recuperar Senha</h3>
-                <p className="text-xs text-slate-500 mb-3">
-                  Digite seu e-mail para receber um link de recuperação.
-                </p>
-                <input
-                  type="email"
-                  value={adminEmail}
-                  onChange={(e) => {
-                    setAdminEmail(e.target.value);
-                    setAdminError('');
-                    setResetMessage('');
-                  }}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-slate-50 font-semibold text-slate-700"
-                  placeholder="Seu e-mail cadastrado"
-                />
-              </div>
-
-              {adminError && (
-                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold rounded-xl text-center">
-                  {adminError}
-                </div>
-              )}
-
-              {resetMessage && (
-                <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-semibold rounded-xl text-center">
-                  {resetMessage}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setIsForgotPassword(false);
-                    setAdminError('');
-                    setResetMessage('');
-                  }}
-                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-200 transition-colors"
-                >
-                  Voltar
-                </button>
-                <button
-                  onClick={handlePasswordReset}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-xs hover:bg-indigo-700 transition-colors"
-                >
-                  Enviar E-mail
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4 animate-fade-in">
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">E-mail de Acesso</label>
-                  <input
-                    type="email"
-                    value={adminEmail}
-                    onChange={(e) => {
-                      setAdminEmail(e.target.value);
-                      setAdminError('');
-                    }}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-slate-50 font-semibold text-slate-700"
-                    placeholder="Seu e-mail de administrador"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Senha</label>
-                  <input
-                    type="password"
-                    value={adminPassword}
-                    onChange={(e) => {
-                      setAdminPassword(e.target.value);
-                      setAdminError('');
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAdminAuth();
-                    }}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-slate-50 font-semibold text-slate-700"
-                    placeholder="Sua senha de acesso"
-                  />
-                </div>
-              </div>
-
-              {adminError && (
-                <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold rounded-xl text-center">
-                  {adminError}
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    setIsForgotPassword(true);
-                    setAdminError('');
-                    setResetMessage('');
-                  }}
-                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
-                >
-                  Esqueceu a senha?
-                </button>
-              </div>
-
-              <button
-                onClick={handleAdminAuth}
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all text-sm shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.98]"
-              >
-                Acessar Painel
-              </button>
-            </div>
-          )}
         </motion.div>
       </div>
     );
