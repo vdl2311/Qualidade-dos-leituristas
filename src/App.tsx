@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, BarChart2, Shield, MapPin, Calendar, Building2, LogOut, Lock } from 'lucide-react';
 import { WorkerData, Settings, Funcionario, Usuario, EstatisticasMensais } from './types';
@@ -430,6 +430,44 @@ export default function App() {
 
   const effectiveLogoUrl = settings.logoBase64 || logoUrl;
 
+  const rankedWorkers = useMemo(() => {
+    const sorted = [...computedWorkers].sort((a, b) => {
+      if (a.ratio !== b.ratio) {
+        return a.ratio - b.ratio; // Menor % é melhor
+      }
+      return b.readings - a.readings; // Desempate: maior leituras
+    });
+    return sorted.map((worker, index) => ({
+      ...worker,
+      rank: index + 1,
+    }));
+  }, [computedWorkers]);
+
+  const loggedWorkerData = useMemo(() => {
+    if (!loggedLeiturista) return null;
+    return rankedWorkers.find(w => w.matricula === loggedLeiturista.matricula);
+  }, [rankedWorkers, loggedLeiturista]);
+
+  const rewardInfo = useMemo(() => {
+    if (!loggedWorkerData) return null;
+    const readings = loggedWorkerData.readings;
+    const impediments = loggedWorkerData.impediments;
+    
+    // Reward is 0.20 per reading above 8000
+    const threshold = 8000;
+    const readingsAboveThreshold = Math.max(0, readings - threshold);
+    const grossReward = readingsAboveThreshold * 0.20;
+    // Net reward: gross reward minus number of impediments times 1.50
+    const netReward = grossReward - (impediments * 1.50);
+    
+    return {
+      readingsAboveThreshold,
+      grossReward,
+      netReward,
+      hasBonus: readings > threshold
+    };
+  }, [loggedWorkerData]);
+
   if (!isLoaded) {
     return (
       <div id="loading-fallback" className="flex items-center justify-center min-h-screen bg-slate-50">
@@ -789,6 +827,110 @@ export default function App() {
               </select>
             </div>
           </div>
+        )}
+
+        {/* Spotlight Worker Box (Logged Leiturista Spotlight Card) */}
+        {loggedWorkerData && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-5 sm:p-6 bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50 border-2 border-indigo-200 rounded-2xl shadow-sm"
+          >
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-indigo-600 text-white flex items-center justify-center font-extrabold text-xl shadow-md shrink-0">
+                  {loggedWorkerData.rank}º
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100/60 px-2 py-0.5 rounded-md">
+                      Seu Desempenho
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      Equipe: {loggedWorkerData.equipe}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-800 tracking-tight mt-0.5">
+                    {loggedWorkerData.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Matrícula: {loggedWorkerData.matricula} · {loggedWorkerData.cidade.toUpperCase()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Reward Calculations / Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 max-w-2xl lg:ml-6">
+                <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leituras</span>
+                  <span className="block text-lg font-black text-slate-800 mt-0.5">{loggedWorkerData.readings.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Impedimentos</span>
+                  <span className="block text-lg font-black text-slate-800 mt-0.5">{loggedWorkerData.impediments.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">% Relação</span>
+                  <span className={`block text-lg font-black mt-0.5 ${loggedWorkerData.ratio <= settings.targetRatio ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {loggedWorkerData.ratio.toFixed(2)}%
+                  </span>
+                </div>
+                <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Meta</span>
+                  <span className="mt-1 block">
+                    {loggedWorkerData.ratio <= settings.targetRatio ? (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">Ok</span>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">Alerta</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Premium Reward Panel */}
+            {rewardInfo && (
+              <div className="mt-4 pt-4 border-t border-indigo-100/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl">💰</span>
+                  <div>
+                    <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                      Simulador de Estimativa de Bônus (Leituras &gt; 8.000)
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-snug">
+                      Bônus de R$ 0,20 por leitura excedente a 8.000, com redução direta de R$ 1,50 por cada impedimento registrado.
+                    </p>
+                    <div className="text-[10px] text-slate-400 font-mono mt-1">
+                      Cálculo: (Leituras acima de 8.000 × R$ 0,20) - (Impedimentos × R$ 1,50)
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 bg-white/90 px-4 py-3 rounded-xl border border-indigo-100 self-end sm:self-auto">
+                  <div className="text-right">
+                    <span className="block text-[9px] font-bold text-slate-400">GANHO LÍQUIDO ESTIMADO</span>
+                    <span className={`block text-xl font-black ${rewardInfo.netReward > 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                      {rewardInfo.netReward > 0 
+                        ? rewardInfo.netReward.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                        : 'R$ 0,00'
+                      }
+                    </span>
+                  </div>
+                  {rewardInfo.hasBonus ? (
+                    <div className="text-xs text-slate-500 font-mono pl-3 border-l border-indigo-100 leading-tight">
+                      <div className="text-indigo-600 font-bold">+{rewardInfo.readingsAboveThreshold} leituras</div>
+                      <div>Bruto: R$ {rewardInfo.grossReward.toFixed(2)}</div>
+                      <div>Imp: -R$ {(loggedWorkerData.impediments * 1.50).toFixed(2)}</div>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-indigo-600 font-bold bg-indigo-50/50 px-2.5 py-1 rounded-md max-w-[170px] leading-snug">
+                      Faltam {8000 - loggedWorkerData.readings} leituras para bônus.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </motion.div>
         )}
 
         {/* Metric widgets */}

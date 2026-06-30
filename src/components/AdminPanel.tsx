@@ -373,13 +373,17 @@ export default function AdminPanel({
   const handleDownloadExcel = () => {
     const dataToExport = filteredFuncionarios.map(f => {
       const stats = localEstatisticas[f.id] || { leituras: 0, impedimentos: 0, percentual: 0 };
+      const readingsAboveThreshold = Math.max(0, stats.leituras - 8000);
+      const grossReward = readingsAboveThreshold * 0.20;
+      const netReward = Math.max(0, grossReward - (stats.impedimentos * 1.50));
       return {
         Matrícula: f.matricula,
         Nome: f.nome,
         Base: f.cidade,
         Leituras: stats.leituras,
         Impedimentos: stats.impedimentos,
-        Percentual: `${stats.percentual.toFixed(2)}%`
+        Percentual: `${stats.percentual.toFixed(2)}%`,
+        'Ganhos Estimados': netReward
       };
     });
 
@@ -1004,6 +1008,7 @@ export default function AdminPanel({
                     <th className="px-4 py-3 w-32">Leituras</th>
                     <th className="px-4 py-3 w-32">Impedimentos</th>
                     <th className="px-4 py-3 w-28">% Relação</th>
+                    <th className="px-4 py-3 w-40">Ganhos Estimados</th>
                     <th className="px-4 py-3 w-16 text-center">Ações</th>
                   </tr>
                 </thead>
@@ -1015,6 +1020,10 @@ export default function AdminPanel({
                       percentual: 0,
                       meta: parseFloat(localTargetRatio) || 0.50
                     };
+
+                    const readingsAboveThreshold = Math.max(0, stats.leituras - 8000);
+                    const grossReward = readingsAboveThreshold * 0.20;
+                    const netReward = Math.max(0, grossReward - (stats.impedimentos * 1.50));
 
                     return (
                       <tr key={f.id} className="hover:bg-slate-50/40 transition-colors">
@@ -1078,6 +1087,15 @@ export default function AdminPanel({
                             {stats.percentual.toFixed(2)}%
                           </div>
                         </td>
+                        <td className="px-4 py-2 font-bold text-slate-700">
+                          {netReward > 0 ? (
+                            <span className="text-emerald-600 font-extrabold font-mono">
+                              {netReward.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-medium font-mono">R$ 0,00</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2 text-center">
                           <button
                             onClick={() => handleRemoveFuncionario(f.id)}
@@ -1092,7 +1110,7 @@ export default function AdminPanel({
                   })}
                   {filteredFuncionarios.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">
+                      <td colSpan={9} className="px-4 py-12 text-center text-slate-400 text-sm">
                         Nenhum funcionário cadastrado ou encontrado para esta busca.
                       </td>
                     </tr>

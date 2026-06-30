@@ -121,16 +121,22 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
 
   // Export to Excel helper
   const handleExport = (type: 'xlsx' | 'xlsm') => {
-    const dataToExport = sortedWorkers.map(w => ({
-      'Posicao': `${w.rank}º`,
-      'Nome': w.name,
-      'Matricula': w.matricula,
-      'Cidade': w.cidade,
-      'Leituras': w.readings,
-      'Impedimentos': w.impediments,
-      'Relacao %': `${w.ratio.toFixed(2)}%`,
-      'Status': w.ratio <= targetRatio ? 'Dentro da Meta' : 'Fora da Meta'
-    }));
+    const dataToExport = sortedWorkers.map(w => {
+      const readingsAboveThreshold = Math.max(0, w.readings - 8000);
+      const grossReward = readingsAboveThreshold * 0.20;
+      const netReward = Math.max(0, grossReward - (w.impediments * 1.50));
+      return {
+        'Posicao': `${w.rank}º`,
+        'Nome': w.name,
+        'Matricula': w.matricula,
+        'Cidade': w.cidade,
+        'Leituras': w.readings,
+        'Impedimentos': w.impediments,
+        'Relacao %': `${w.ratio.toFixed(2)}%`,
+        'Status': w.ratio <= targetRatio ? 'Dentro da Meta' : 'Fora da Meta',
+        'Ganhos Estimados': netReward
+      };
+    });
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Ranking");
@@ -141,26 +147,6 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
     if (!loggedLeiturista) return null;
     return rankedWorkers.find(w => w.matricula === loggedLeiturista.matricula);
   }, [rankedWorkers, loggedLeiturista]);
-
-  const rewardInfo = useMemo(() => {
-    if (!loggedWorkerData) return null;
-    const readings = loggedWorkerData.readings;
-    const impediments = loggedWorkerData.impediments;
-    
-    // Reward is 0.20 per reading above 8000
-    const threshold = 8000;
-    const readingsAboveThreshold = Math.max(0, readings - threshold);
-    const grossReward = readingsAboveThreshold * 0.20;
-    // Net reward: gross reward minus number of impediments
-    const netReward = grossReward - impediments;
-    
-    return {
-      readingsAboveThreshold,
-      grossReward,
-      netReward,
-      hasBonus: readings > threshold
-    };
-  }, [loggedWorkerData]);
 
   return (
     <div id="ranking-container" className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 sm:p-6">
@@ -310,109 +296,7 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
         </button>
       </div>
 
-      {/* Spotlight Worker Box (Logged Leiturista Spotlight Card) */}
-      {loggedWorkerData && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-5 sm:p-6 bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50 border-2 border-indigo-200 rounded-2xl shadow-sm"
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-indigo-600 text-white flex items-center justify-center font-extrabold text-xl shadow-md shrink-0">
-                {loggedWorkerData.rank}º
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100/60 px-2 py-0.5 rounded-md">
-                    Seu Desempenho
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500">
-                    Equipe: {loggedWorkerData.equipe}
-                  </span>
-                </div>
-                <h3 className="text-lg font-black text-slate-800 tracking-tight mt-0.5">
-                  {loggedWorkerData.name}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Matrícula: {loggedWorkerData.matricula} · {loggedWorkerData.cidade.toUpperCase()}
-                </p>
-              </div>
-            </div>
 
-            {/* Reward Calculations / Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 max-w-2xl lg:ml-6">
-              <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leituras</span>
-                <span className="block text-lg font-black text-slate-800 mt-0.5">{loggedWorkerData.readings.toLocaleString('pt-BR')}</span>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Impedimentos</span>
-                <span className="block text-lg font-black text-slate-800 mt-0.5">{loggedWorkerData.impediments.toLocaleString('pt-BR')}</span>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">% Relação</span>
-                <span className={`block text-lg font-black mt-0.5 ${loggedWorkerData.ratio <= targetRatio ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {loggedWorkerData.ratio.toFixed(2)}%
-                </span>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-indigo-100/60 text-center">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Meta</span>
-                <span className="mt-1 block">
-                  {loggedWorkerData.ratio <= targetRatio ? (
-                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">Ok</span>
-                  ) : (
-                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">Alerta</span>
-                  )}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Premium Reward Panel */}
-          {rewardInfo && (
-            <div className="mt-4 pt-4 border-t border-indigo-100/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-2.5">
-                <span className="text-xl">💰</span>
-                <div>
-                  <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                    Simulador de Estimativa de Bônus (Leituras &gt; 8.000)
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5 leading-snug">
-                    Bônus de R$ 0,20 por leitura excedente a 8.000, com redução direta por cada impedimento registrado.
-                  </p>
-                  <div className="text-[10px] text-slate-400 font-mono mt-1">
-                    Cálculo: (Leituras acima de 8.000 × R$ 0,20) - Impedimentos
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 bg-white/90 px-4 py-3 rounded-xl border border-indigo-100 self-end sm:self-auto">
-                <div className="text-right">
-                  <span className="block text-[9px] font-bold text-slate-400">GANHO LÍQUIDO ESTIMADO</span>
-                  <span className={`block text-xl font-black ${rewardInfo.netReward > 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                    {rewardInfo.netReward > 0 
-                      ? rewardInfo.netReward.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                      : 'R$ 0,00'
-                    }
-                  </span>
-                </div>
-                {rewardInfo.hasBonus ? (
-                  <div className="text-xs text-slate-500 font-mono pl-3 border-l border-indigo-100 leading-tight">
-                    <div className="text-indigo-600 font-bold">+{rewardInfo.readingsAboveThreshold} leituras</div>
-                    <div>Bruto: R$ {rewardInfo.grossReward.toFixed(2)}</div>
-                    <div>Imp: -{loggedWorkerData.impediments}</div>
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-indigo-600 font-bold bg-indigo-50/50 px-2.5 py-1 rounded-md max-w-[170px] leading-snug">
-                    Faltam {8000 - loggedWorkerData.readings} leituras para bônus.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
 
       {/* Count Info Indicator */}
       <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-4 md:hidden">
