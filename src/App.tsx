@@ -811,6 +811,7 @@ export default function App() {
                 targetRatio={settings.targetRatio} 
                 isAdminMode={false}
                 hideExport={!!loggedLeiturista}
+                loggedLeiturista={loggedLeiturista}
               />
             )}
 
