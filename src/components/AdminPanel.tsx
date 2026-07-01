@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import * as XLSX from 'xlsx';
 import { motion } from 'motion/react';
 import { Upload, Save, UserPlus, Trash2, Settings as SettingsIcon, Search, LogOut, ShieldAlert, Calendar, Plus, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Funcionario, Usuario, Settings, WorkerData, EstatisticasMensais, PeriodEstatistica } from '../types';
@@ -370,7 +369,8 @@ export default function AdminPanel({
   };
 
   // CSV Import
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
+    const XLSX = await import('xlsx');
     const dataToExport = filteredFuncionarios.map(f => {
       const stats = localEstatisticas[f.id] || { leituras: 0, impedimentos: 0, percentual: 0 };
       const readingsAboveThreshold = Math.max(0, stats.leituras - 8000);
@@ -399,11 +399,12 @@ export default function AdminPanel({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const data = event.target?.result;
       if (file.name.endsWith('.csv')) {
         parseCSV(data as string);
       } else {
+        const XLSX = await import('xlsx');
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];

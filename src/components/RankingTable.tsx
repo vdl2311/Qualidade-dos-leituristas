@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, Download, RefreshCw } from 'lucide-react';
 import { WorkerData, SortField, SortOrder, Funcionario } from '../types';
@@ -120,7 +119,8 @@ export default function RankingTable({ workers, targetRatio, onEditWorker, isAdm
   };
 
   // Export to Excel helper
-  const handleExport = (type: 'xlsx' | 'xlsm') => {
+  const handleExport = async (type: 'xlsx' | 'xlsm') => {
+    const XLSX = await import('xlsx');
     const dataToExport = sortedWorkers.map(w => {
       const readingsAboveThreshold = Math.max(0, w.readings - 8000);
       const grossReward = readingsAboveThreshold * 0.20;
