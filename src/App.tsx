@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, BarChart2, Shield, MapPin, Calendar, Building2, LogOut, Lock } from 'lucide-react';
-import { WorkerData, Settings, Funcionario, Usuario, EstatisticasMensais } from './types';
+import { WorkerData, Settings, Funcionario, Usuario, EstatisticasMensais, PeriodEstatistica } from './types';
 import logoUrl from './assets/images/radar_logo_1782608579304.jpg';
 
 // Firebase imports
@@ -24,6 +24,109 @@ const getYearMonthString = (date = new Date()) => {
 };
 
 export default function App() {
+  // Toast Notification States & Helpers
+  const [toasts, setToasts] = useState<{
+    id: string;
+    title: string;
+    message: string;
+    type: 'info' | 'success' | 'warning';
+  }[]>([]);
+
+  const prevFuncionariosRef = useRef<Funcionario[] | null>(null);
+  const prevEstatisticasRef = useRef<EstatisticasMensais | null>(null);
+  const prevPeriodRef = useRef<string | null>(null);
+
+  const playChime = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      gain1.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.3);
+      
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+      gain2.gain.setValueAtTime(0.08, audioCtx.currentTime + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(audioCtx.currentTime + 0.08);
+      osc2.stop(audioCtx.currentTime + 0.4);
+    } catch (e) {
+      console.log('Audio Context not allowed or supported yet', e);
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      try {
+        if (Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+      } catch (err) {
+        console.warn('Could not request notification permission:', err);
+      }
+    }
+  };
+
+  const sendPushNotification = (title: string, body: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const options = {
+        body,
+        icon: '/logo.svg',
+        badge: '/logo.svg',
+        vibrate: [200, 100, 200, 100, 200], // custom vibration pattern for phone alerts
+        tag: 'radar-leiturista-update',
+        renotify: true,
+        requireInteraction: false
+      };
+
+      // 1. Try to send via registered active Service Worker (Highly compatible on Android/iOS PWA)
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title,
+          body,
+          icon: '/logo.svg',
+          badge: '/logo.svg',
+          vibrate: [200, 100, 200, 100, 200],
+          tag: 'radar-leiturista-update'
+        });
+      }
+
+      // 2. Try to show via Service Worker Registration (The standard way on mobile browsers)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+          .then((registration) => {
+            registration.showNotification(title, options);
+          })
+          .catch((err) => {
+            console.log('Service Worker notification failed, falling back to standard notification:', err);
+            try {
+              new Notification(title, options);
+            } catch (e) {
+              console.log('Standard Notification creation failed:', e);
+            }
+          });
+      } else {
+        try {
+          new Notification(title, options);
+        } catch (e) {
+          console.log('Notification constructor failed:', e);
+        }
+      }
+    }
+  };
+
   // 1. App State
   const [selectedCity, setSelectedCity] = useState<string>(() => {
     const savedLeiturista = localStorage.getItem('rankdash_leiturista');
@@ -146,6 +249,7 @@ export default function App() {
   useEffect(() => {
     const initialize = async () => {
       await bootstrapDatabase();
+      requestNotificationPermission();
 
       // Listen to Settings
       onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
@@ -181,6 +285,76 @@ export default function App() {
 
     initialize();
   }, []);
+
+  // Monitor statistics updates (readings and impediments) of the leituristas to trigger notifications
+  useEffect(() => {
+    // If stats are empty, populate ref and skip to avoid notifying on initial load
+    if (Object.keys(estatisticas).length === 0) {
+      prevEstatisticasRef.current = estatisticas;
+      prevPeriodRef.current = currentPeriod;
+      return;
+    }
+
+    // Only compare if we are in the same period to avoid false alarms when shifting period tabs
+    if (prevPeriodRef.current === currentPeriod && prevEstatisticasRef.current !== null) {
+      const changes: string[] = [];
+
+      (Object.entries(estatisticas) as [string, PeriodEstatistica][]).forEach(([funcId, currentStats]) => {
+        const prevStats = prevEstatisticasRef.current?.[funcId] as PeriodEstatistica | undefined;
+        if (prevStats) {
+          const readingsChanged = currentStats.leituras !== prevStats.leituras;
+          const impedimentsChanged = currentStats.impedimentos !== prevStats.impedimentos;
+
+          if (readingsChanged || impedimentsChanged) {
+            const func = funcionarios.find(f => f.id === funcId);
+            const name = func ? func.nome : `Leiturista`;
+            const matriculaStr = func ? ` (Matrícula: ${func.matricula})` : '';
+
+            let changeMsg = '';
+            if (readingsChanged && impedimentsChanged) {
+              changeMsg = `atualizou seus dados de desempenho: Leituras realizadas: ${prevStats.leituras} → ${currentStats.leituras} | Impedimentos: ${prevStats.impedimentos} → ${currentStats.impedimentos}`;
+            } else if (readingsChanged) {
+              changeMsg = `atualizou o número de leituras realizadas de ${prevStats.leituras} para ${currentStats.leituras}`;
+            } else {
+              changeMsg = `atualizou o número de impedimentos de ${prevStats.impedimentos} para ${currentStats.impedimentos}`;
+            }
+
+            changes.push(`${name}${matriculaStr} ${changeMsg}.`);
+          }
+        }
+      });
+
+      if (changes.length > 0) {
+        changes.forEach((message) => {
+          const title = "Leitura Atualizada 📊";
+          playChime();
+          sendPushNotification(title, message);
+
+          const newToast = {
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 7),
+            title,
+            message,
+            type: 'info' as const
+          };
+          setToasts(prev => [...prev, newToast]);
+        });
+      }
+    }
+
+    // Keep cache synced
+    prevEstatisticasRef.current = estatisticas;
+    prevPeriodRef.current = currentPeriod;
+  }, [estatisticas, funcionarios, currentPeriod]);
+
+  // Auto-dismiss in-app toasts after 7 seconds
+  useEffect(() => {
+    if (toasts.length > 0) {
+      const timer = setTimeout(() => {
+        setToasts(prev => prev.filter((_, idx) => idx !== 0));
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [toasts]);
 
   // Listen to active period statistics
   useEffect(() => {
@@ -983,6 +1157,66 @@ export default function App() {
       
       {/* PWA App Installation Floating Banner */}
       <InstallAppPrompt />
+
+      {/* Floating Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, x: 50, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 50, scale: 0.95 }}
+              layout
+              className="pointer-events-auto bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-100 p-4 flex items-start gap-3.5 relative overflow-hidden group"
+            >
+              {/* Left side accent color bar */}
+              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                toast.type === 'success' ? 'bg-emerald-500' :
+                toast.type === 'warning' ? 'bg-amber-500' :
+                'bg-indigo-500'
+              }`} />
+              
+              {/* Icon based on type */}
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                toast.type === 'success' ? 'bg-emerald-50 text-emerald-600' :
+                toast.type === 'warning' ? 'bg-amber-50 text-amber-600' :
+                'bg-indigo-50 text-indigo-600'
+              }`}>
+                {toast.type === 'success' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : toast.type === 'warning' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+
+              {/* Text content */}
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-black text-slate-800 tracking-tight">{toast.title}</h4>
+                <p className="text-xs font-medium text-slate-500 mt-0.5 leading-relaxed">{toast.message}</p>
+              </div>
+
+              {/* Close button */}
+              <button
+                onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                className="absolute right-2 top-2 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100/50 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

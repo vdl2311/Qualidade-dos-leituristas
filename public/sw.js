@@ -56,3 +56,61 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// Handle background message/notification triggers
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, body, icon, badge, vibrate, tag } = event.data;
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body,
+        icon: icon || '/logo.svg',
+        badge: badge || '/logo.svg',
+        vibrate: vibrate || [200, 100, 200],
+        tag: tag || 'radar-leiturista-update',
+        renotify: true
+      })
+    );
+  }
+});
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'Radar Leiturista', body: 'Atualização no painel.' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'Radar Leiturista', body: event.data.text() };
+    }
+  }
+  
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/logo.svg',
+      badge: '/logo.svg',
+      vibrate: [200, 100, 200],
+      tag: 'radar-leiturista-update',
+      renotify: true
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      if (clientList.length > 0) {
+        let client = clientList[0];
+        for (let i = 0; i < clientList.length; i++) {
+          if (clientList[i].focused) {
+            client = clientList[i];
+            break;
+          }
+        }
+        return client.focus();
+      }
+      return clients.openWindow('/');
+    })
+  );
+});
