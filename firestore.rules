@@ -1,17 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default-deny catch-all safety net
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     function isAuthed() {
       return request.auth != null;
     }
     
     function getUserData() {
-      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) ?
+      return isAuthed() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) ?
              get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data :
              null;
     }
@@ -21,18 +16,15 @@ service cloud.firestore {
     }
 
     function isSupervisor() {
-      let data = getUserData();
-      return isRoot() || (isAuthed() && data != null && data.cargo == 'supervisor');
+      return isAuthed() && (isRoot() || (getUserData() != null && getUserData().cargo == 'supervisor'));
     }
 
     function isGerente() {
-      let data = getUserData();
-      return isAuthed() && data != null && data.cargo == 'gerente';
+      return isAuthed() && getUserData() != null && getUserData().cargo == 'gerente';
     }
 
     function isAuthorizedForCity(cidade) {
-      let data = getUserData();
-      return isRoot() || isSupervisor() || (isGerente() && data != null && data.cidade == cidade);
+      return isAuthed() && (isRoot() || isSupervisor() || (isGerente() && getUserData() != null && getUserData().cidade == cidade));
     }
 
     match /usuarios/{uid} {
