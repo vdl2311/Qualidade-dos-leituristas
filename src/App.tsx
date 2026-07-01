@@ -846,9 +846,6 @@ export default function App() {
                     <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100/60 px-2 py-0.5 rounded-md">
                       Seu Desempenho
                     </span>
-                    <span className="text-xs font-semibold text-slate-500">
-                      Equipe: {loggedWorkerData.equipe}
-                    </span>
                   </div>
                   <h3 className="text-lg font-black text-slate-800 tracking-tight mt-0.5">
                     {loggedWorkerData.name}

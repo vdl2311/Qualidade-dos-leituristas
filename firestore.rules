@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     function isAuthed() {
       return request.auth != null;
     }
@@ -12,7 +17,7 @@ service cloud.firestore {
     }
 
     function isRoot() {
-      return isAuthed() && request.auth.token.email.matches('^vidal2311usa.*@gmail\\.com$');
+      return isAuthed() && request.auth.token.email == 'vidal2311usa@gmail.com';
     }
 
     function isSupervisor() {
@@ -25,9 +30,24 @@ service cloud.firestore {
       return isAuthed() && data != null && data.cargo == 'gerente';
     }
 
+    function isAuthorizedForCity(cidade) {
+      let data = getUserData();
+      return isRoot() || isSupervisor() || (isGerente() && data != null && data.cidade == cidade);
+    }
+
     match /usuarios/{uid} {
       allow read: if isAuthed();
-      allow write: if isAuthed() && (isRoot() || isSupervisor() || request.auth.uid == uid);
+      allow create: if isAuthed() && (isRoot() || isSupervisor());
+      allow update: if isAuthed() && (
+        isRoot() || 
+        isSupervisor() || 
+        (request.auth.uid == uid && 
+         request.resource.data.cargo == resource.data.cargo && 
+         request.resource.data.cidade == resource.data.cidade && 
+         request.resource.data.ativo == resource.data.ativo
+        )
+      );
+      allow delete: if isAuthed() && (isRoot() || isSupervisor());
     }
 
     match /cidades/{cidade} {
@@ -37,18 +57,21 @@ service cloud.firestore {
     }
 
     match /funcionarios/{id} {
-      allow read: if isAuthed();
-      allow create, update, delete: if isAuthed() && (isRoot() || isSupervisor() || isGerente());
+      allow read: if true;
+      allow create: if isAuthed() && isAuthorizedForCity(request.resource.data.cidade);
+      allow update: if isAuthed() && isAuthorizedForCity(resource.data.cidade) && isAuthorizedForCity(request.resource.data.cidade);
+      allow delete: if isAuthed() && isAuthorizedForCity(resource.data.cidade);
     }
 
     match /estatisticas/{periodo} {
-      allow read: if isAuthed();
-      allow create, update, delete: if isAuthed() && (isRoot() || isSupervisor() || isGerente());
+      allow read: if true;
+      allow create, update: if isAuthed() && (isRoot() || isSupervisor() || isGerente());
+      allow delete: if isAuthed() && (isRoot() || isSupervisor());
     }
 
     match /settings/{document} {
-      allow read: if isAuthed();
-      allow create, update, delete: if isSupervisor() || isGerente();
+      allow read: if true;
+      allow create, update, delete: if isSupervisor();
     }
   }
 }
