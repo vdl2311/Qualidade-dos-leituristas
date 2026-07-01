@@ -605,17 +605,37 @@ export default function App() {
   const effectiveLogoUrl = settings.logoBase64 || logoUrl;
 
   const rankedWorkers = useMemo(() => {
+    // K represents a smoothing constant (minimum baseline sample size)
+    const K = 2000;
+    const baseTargetRatio = settings.targetRatio / 100; // e.g. 0.0050
+
+    const getAdjustedRatio = (w: WorkerData) => {
+      const readings = w.readings;
+      const impediments = w.impediments;
+      if (readings === 0) return 100; // Put zero readings at the bottom
+      return ((impediments + K * baseTargetRatio) / (readings + K)) * 100;
+    };
+
     const sorted = [...computedWorkers].sort((a, b) => {
-      if (a.ratio !== b.ratio) {
-        return a.ratio - b.ratio; // Menor % é melhor
+      const adjA = getAdjustedRatio(a);
+      const adjB = getAdjustedRatio(b);
+      
+      if (adjA !== adjB) {
+        return adjA - adjB;
       }
-      return b.readings - a.readings; // Desempate: maior leituras
+      return b.readings - a.readings; // Tie-breaker: more readings is better
     });
-    return sorted.map((worker, index) => ({
-      ...worker,
-      rank: index + 1,
-    }));
-  }, [computedWorkers]);
+    
+    return computedWorkers.map((worker) => {
+      const rankIndex = sorted.findIndex(w => w.id === worker.id);
+      const exactRatio = worker.readings > 0 ? (worker.impediments / worker.readings) * 100 : 0;
+      return {
+        ...worker,
+        ratio: exactRatio,
+        rank: rankIndex + 1
+      };
+    });
+  }, [computedWorkers, settings.targetRatio]);
 
   const loggedWorkerData = useMemo(() => {
     if (!loggedLeiturista) return null;
